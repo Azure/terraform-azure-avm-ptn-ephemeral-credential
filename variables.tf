@@ -1,95 +1,3 @@
-variable "location" {
-  type        = string
-  description = "Azure region where the resource should be deployed."
-  nullable    = false
-}
-
-variable "name" {
-  type        = string
-  description = "The name of the this resource."
-
-  validation {
-    condition     = can(regex("TODO", var.name))
-    error_message = "The name must be TODO." # TODO remove the example below once complete:
-    #condition     = can(regex("^[a-z0-9]{5,50}$", var.name))
-    #error_message = "The name must be between 5 and 50 characters long and can only contain lowercase letters and numbers."
-  }
-}
-
-# This is required for most resource modules
-variable "resource_group_name" {
-  type        = string
-  description = "The resource group where the resources will be deployed."
-}
-
-# required AVM interfaces
-# remove only if not supported by the resource
-# tflint-ignore: terraform_unused_declarations
-variable "customer_managed_key" {
-  type = object({
-    key_vault_resource_id = string
-    key_name              = string
-    key_version           = optional(string, null)
-    user_assigned_identity = optional(object({
-      resource_id = string
-    }), null)
-  })
-  default     = null
-  description = <<DESCRIPTION
-A map describing customer-managed keys to associate with the resource. This includes the following properties:
-- `key_vault_resource_id` - The resource ID of the Key Vault where the key is stored.
-- `key_name` - The name of the key.
-- `key_version` - (Optional) The version of the key. If not specified, the latest version is used.
-- `user_assigned_identity` - (Optional) An object representing a user-assigned identity with the following properties:
-  - `resource_id` - The resource ID of the user-assigned identity.
-DESCRIPTION  
-}
-
-variable "diagnostic_settings" {
-  type = map(object({
-    name                                     = optional(string, null)
-    log_categories                           = optional(set(string), [])
-    log_groups                               = optional(set(string), ["allLogs"])
-    metric_categories                        = optional(set(string), ["AllMetrics"])
-    log_analytics_destination_type           = optional(string, "Dedicated")
-    workspace_resource_id                    = optional(string, null)
-    storage_account_resource_id              = optional(string, null)
-    event_hub_authorization_rule_resource_id = optional(string, null)
-    event_hub_name                           = optional(string, null)
-    marketplace_partner_resource_id          = optional(string, null)
-  }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of diagnostic settings to create on the Key Vault. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `name` - (Optional) The name of the diagnostic setting. One will be generated if not set, however this will not be unique if you want to create multiple diagnostic setting resources.
-- `log_categories` - (Optional) A set of log categories to send to the log analytics workspace. Defaults to `[]`.
-- `log_groups` - (Optional) A set of log groups to send to the log analytics workspace. Defaults to `["allLogs"]`.
-- `metric_categories` - (Optional) A set of metric categories to send to the log analytics workspace. Defaults to `["AllMetrics"]`.
-- `log_analytics_destination_type` - (Optional) The destination type for the diagnostic setting. Possible values are `Dedicated` and `AzureDiagnostics`. Defaults to `Dedicated`.
-- `workspace_resource_id` - (Optional) The resource ID of the log analytics workspace to send logs and metrics to.
-- `storage_account_resource_id` - (Optional) The resource ID of the storage account to send logs and metrics to.
-- `event_hub_authorization_rule_resource_id` - (Optional) The resource ID of the event hub authorization rule to send logs and metrics to.
-- `event_hub_name` - (Optional) The name of the event hub. If none is specified, the default event hub will be selected.
-- `marketplace_partner_resource_id` - (Optional) The full ARM resource ID of the Marketplace resource to which you would like to send Diagnostic LogsLogs.
-DESCRIPTION  
-  nullable    = false
-
-  validation {
-    condition     = alltrue([for _, v in var.diagnostic_settings : contains(["Dedicated", "AzureDiagnostics"], v.log_analytics_destination_type)])
-    error_message = "Log analytics destination type must be one of: 'Dedicated', 'AzureDiagnostics'."
-  }
-  validation {
-    condition = alltrue(
-      [
-        for _, v in var.diagnostic_settings :
-        v.workspace_resource_id != null || v.storage_account_resource_id != null || v.event_hub_authorization_rule_resource_id != null || v.marketplace_partner_resource_id != null
-      ]
-    )
-    error_message = "At least one of `workspace_resource_id`, `storage_account_resource_id`, `marketplace_partner_resource_id`, or `event_hub_authorization_rule_resource_id`, must be set."
-  }
-}
-
 variable "enable_telemetry" {
   type        = bool
   default     = true
@@ -101,134 +9,109 @@ DESCRIPTION
   nullable    = false
 }
 
-variable "lock" {
+variable "key_vault_password_secret" {
   type = object({
-    kind = string
-    name = optional(string, null)
+    content_type    = optional(string)
+    expiration_date = optional(string)
+    key_vault_id    = string
+    name            = string
+    not_before_date = optional(string)
+    tags            = optional(map(string))
+    timeouts = optional(object({
+      create = optional(string)
+      delete = optional(string)
+      read   = optional(string)
+      update = optional(string)
+    }))
   })
   default     = null
-  description = <<DESCRIPTION
-Controls the Resource Lock configuration for this resource. The following properties can be specified:
+  description = <<-EOT
+ - `content_type` - (Optional) Specifies the content type for the Key Vault Secret.
+ - `expiration_date` - (Optional) Expiration UTC datetime (Y-m-d'T'H:M:S'Z').
+ - `key_vault_id` - (Required) The ID of the Key Vault where the Secret should be created. Changing this forces a new resource to be created.
+ - `not_before_date` - (Optional) Key not usable before the provided UTC datetime (Y-m-d'T'H:M:S'Z').
+ - `tags` - (Optional) A mapping of tags to assign to the resource.
+ - `value` - (Optional) Specifies the value of the Key Vault Secret. Changing this will create a new version of the Key Vault Secret.
 
-- `kind` - (Required) The type of lock. Possible values are `\"CanNotDelete\"` and `\"ReadOnly\"`.
-- `name` - (Optional) The name of the lock. If not specified, a name will be generated based on the `kind` value. Changing this forces the creation of a new resource.
-DESCRIPTION
+ ---
+ `timeouts` block supports the following:
+ - `create` - (Defaults to 30 minutes) Used when creating the Key Vault Secret.
+ - `delete` - (Defaults to 30 minutes) Used when deleting the Key Vault Secret.
+ - `read` - (Defaults to 30 minutes) Used when retrieving the Key Vault Secret.
+ - `update` - (Defaults to 30 minutes) Used when updating the Key Vault Secret.
+EOT
 
   validation {
-    condition     = var.lock != null ? contains(["CanNotDelete", "ReadOnly"], var.lock.kind) : true
-    error_message = "The lock level must be one of: 'None', 'CanNotDelete', or 'ReadOnly'."
+    condition     = var.key_vault_password_secret == null || var.password != null
+    error_message = "The `key_vault_password_secret` variable can only be set when the `password` variable is set."
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
-variable "managed_identities" {
+variable "password" {
   type = object({
-    system_assigned            = optional(bool, false)
-    user_assigned_resource_ids = optional(set(string), [])
+    keepers          = optional(map(string))
+    length           = number
+    lower            = optional(bool)
+    min_lower        = optional(number)
+    min_numeric      = optional(number)
+    min_special      = optional(number)
+    min_upper        = optional(number)
+    number           = optional(bool)
+    numeric          = optional(bool)
+    override_special = optional(string)
+    special          = optional(bool)
+    upper            = optional(bool)
   })
-  default     = {}
-  description = <<DESCRIPTION
-Controls the Managed Identity configuration on this resource. The following properties can be specified:
-
-- `system_assigned` - (Optional) Specifies if the System Assigned Managed Identity should be enabled.
-- `user_assigned_resource_ids` - (Optional) Specifies a list of User Assigned Managed Identity resource IDs to be assigned to this resource.
-DESCRIPTION
-  nullable    = false
-}
-
-variable "private_endpoints" {
-  type = map(object({
-    name = optional(string, null)
-    role_assignments = optional(map(object({
-      role_definition_id_or_name             = string
-      principal_id                           = string
-      description                            = optional(string, null)
-      skip_service_principal_aad_check       = optional(bool, false)
-      condition                              = optional(string, null)
-      condition_version                      = optional(string, null)
-      delegated_managed_identity_resource_id = optional(string, null)
-    })), {})
-    lock = optional(object({
-      kind = string
-      name = optional(string, null)
-    }), null)
-    tags                                    = optional(map(string), null)
-    subnet_resource_id                      = string
-    private_dns_zone_group_name             = optional(string, "default")
-    private_dns_zone_resource_ids           = optional(set(string), [])
-    application_security_group_associations = optional(map(string), {})
-    private_service_connection_name         = optional(string, null)
-    network_interface_name                  = optional(string, null)
-    location                                = optional(string, null)
-    resource_group_name                     = optional(string, null)
-    ip_configurations = optional(map(object({
-      name               = string
-      private_ip_address = string
-    })), {})
-  }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of private endpoints to create on this resource. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `name` - (Optional) The name of the private endpoint. One will be generated if not set.
-- `role_assignments` - (Optional) A map of role assignments to create on the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time. See `var.role_assignments` for more information.
-- `lock` - (Optional) The lock level to apply to the private endpoint. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`.
-- `tags` - (Optional) A mapping of tags to assign to the private endpoint.
-- `subnet_resource_id` - The resource ID of the subnet to deploy the private endpoint in.
-- `private_dns_zone_group_name` - (Optional) The name of the private DNS zone group. One will be generated if not set.
-- `private_dns_zone_resource_ids` - (Optional) A set of resource IDs of private DNS zones to associate with the private endpoint. If not set, no zone groups will be created and the private endpoint will not be associated with any private DNS zones. DNS records must be managed external to this module.
-- `application_security_group_resource_ids` - (Optional) A map of resource IDs of application security groups to associate with the private endpoint. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-- `private_service_connection_name` - (Optional) The name of the private service connection. One will be generated if not set.
-- `network_interface_name` - (Optional) The name of the network interface. One will be generated if not set.
-- `location` - (Optional) The Azure location where the resources will be deployed. Defaults to the location of the resource group.
-- `resource_group_name` - (Optional) The resource group where the resources will be deployed. Defaults to the resource group of this resource.
-- `ip_configurations` - (Optional) A map of IP configurations to create on the private endpoint. If not specified the platform will create one. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-  - `name` - The name of the IP configuration.
-  - `private_ip_address` - The private IP address of the IP configuration.
-DESCRIPTION
-  nullable    = false
-}
-
-# This variable is used to determine if the private_dns_zone_group block should be included,
-# or if it is to be managed externally, e.g. using Azure Policy.
-# https://github.com/Azure/terraform-azurerm-avm-res-keyvault-vault/issues/32
-# Alternatively you can use AzAPI, which does not have this issue.
-variable "private_endpoints_manage_dns_zone_group" {
-  type        = bool
-  default     = true
-  description = "Whether to manage private DNS zone groups with this module. If set to false, you must manage private DNS zone groups externally, e.g. using Azure Policy."
-  nullable    = false
-}
-
-variable "role_assignments" {
-  type = map(object({
-    role_definition_id_or_name             = string
-    principal_id                           = string
-    description                            = optional(string, null)
-    skip_service_principal_aad_check       = optional(bool, false)
-    condition                              = optional(string, null)
-    condition_version                      = optional(string, null)
-    delegated_managed_identity_resource_id = optional(string, null)
-  }))
-  default     = {}
-  description = <<DESCRIPTION
-A map of role assignments to create on this resource. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
-
-- `role_definition_id_or_name` - The ID or name of the role definition to assign to the principal.
-- `principal_id` - The ID of the principal to assign the role to.
-- `description` - The description of the role assignment.
-- `skip_service_principal_aad_check` - If set to true, skips the Azure Active Directory check for the service principal in the tenant. Defaults to false.
-- `condition` - The condition which will be used to scope the role assignment.
-- `condition_version` - The version of the condition syntax. Valid values are '2.0'.
-
-> Note: only set `skip_service_principal_aad_check` to true if you are assigning a role to a service principal.
-DESCRIPTION
-  nullable    = false
-}
-
-# tflint-ignore: terraform_unused_declarations
-variable "tags" {
-  type        = map(string)
   default     = null
-  description = "(Optional) Tags of the resource."
+  description = <<-EOT
+ - `keepers` -
+ - `length` -
+ - `lower` - (Boolean) Include lowercase alphabet characters in the result. Default value is `true`.
+ - `min_lower` - (Number) Minimum number of lowercase alphabet characters in the result. Default value is `0`.
+ - `min_numeric` - (Number) Minimum number of numeric characters in the result. Default value is `0`.
+ - `min_special` - (Number) Minimum number of special characters in the result. Default value is `0`.
+ - `min_upper` - (Number) Minimum number of uppercase alphabet characters in the result. Default value is `0`.
+ - `numeric` - (Boolean) Include numeric characters in the result. Default value is true. If `numeric`, `upper`, `lower`, and `special` are all configured, at least one of them must be set to `true`.
+ - `override_special` - (String) Supply your own list of special characters to use for string generation. This overrides the default character list in the special argument. The `special` argument must still be set to true for any overwritten characters to be used in generation.
+ - `special` - (Boolean) Include special characters in the result. These are `!@#$%&*()-_=+[]{}<>:?`. Default value is `true`.
+ - `upper` - (Boolean) Include uppercase alphabet characters in the result. Default value is `true`.
+EOT
+}
+
+variable "private_key" {
+  type = object({
+    algorithm   = string
+    ecdsa_curve = optional(string)
+    rsa_bits    = optional(number)
+  })
+  default     = null
+  description = <<-EOT
+ - `algorithm` - (String) Name of the algorithm to use when generating the private key. Currently-supported values are: `RSA`, `ECDSA`, `ED25519`.
+ - `ecdsa_curve` - (String) When `algorithm` is `ECDSA`, the name of the elliptic curve to use. Currently-supported values are: `P224`, `P256`, `P384`, `P521`. (default: `P224`).
+ - `rsa_bits` - (Number) When `algorithm` is RSA, the size of the generated RSA key, in bits (default: `2048`).
+EOT
+}
+
+variable "time_rotating" {
+  type = object({
+    rfc3339          = optional(string)
+    rotation_days    = optional(number)
+    rotation_hours   = optional(number)
+    rotation_minutes = optional(number)
+    rotation_months  = optional(number)
+    rotation_rfc3339 = optional(string)
+    rotation_years   = optional(number)
+    triggers         = optional(map(string))
+  })
+  default     = null
+  description = <<-EOT
+ - `rfc3339` - (String) Base timestamp in [RFC3339](https://datatracker.ietf.org/doc/html/rfc3339#section-5.8) format (see [RFC3339 time string](https://tools.ietf.org/html/rfc3339#section-5.8) e.g., `YYYY-MM-DDTHH:MM:SSZ`). Defaults to the current time.
+ - `rotation_days` - (Number) Number of days to add to the base timestamp to configure the rotation timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `rotation_hours` - (Number) Number of hours to add to the base timestamp to configure the rotation timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `rotation_minutes` - (Number) Number of minutes to add to the base timestamp to configure the rotation timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `rotation_months` - (Number) Number of months to add to the base timestamp to configure the rotation timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `rotation_rfc3339` - (String) Configure the rotation timestamp with an [RFC3339](https://datatracker.ietf.org/doc/html/rfc3339#section-5.8) format of the offset timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `rotation_years` - (Number) Number of years to add to the base timestamp to configure the rotation timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured.
+ - `triggers` - (Map of String) Arbitrary map of values that, when changed, will trigger a new base timestamp value to be saved. These conditions recreate the resource in addition to other rotation arguments. See [the main provider documentation](../index.md) for more information.
+EOT
 }
