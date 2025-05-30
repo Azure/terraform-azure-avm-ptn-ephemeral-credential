@@ -68,18 +68,19 @@ resource "azurerm_key_vault" "example" {
   }
 }
 
-module "non_retrievable_password" {
+module "non_retrievable_private_key" {
   source = "../../"
 
   enable_telemetry = false
-  password = {
-    length = 19
+  private_key = {
+    algorithm = "RSA"
+    rsa_bits  = 2048
   }
 }
 
-resource "azurerm_key_vault_secret" "non_retrievable_password" {
+resource "azurerm_key_vault_secret" "non_retrievable_private_key" {
   key_vault_id     = azurerm_key_vault.example.id
   name             = "non-retrievable-password"
-  value_wo         = module.non_retrievable_password.password_result
-  value_wo_version = module.non_retrievable_password.value_wo_version
+  value_wo         = module.non_retrievable_private_key.non_retrievable_public_key_openssh
+  value_wo_version = module.non_retrievable_private_key.value_wo_version
 }

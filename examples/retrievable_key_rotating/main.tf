@@ -72,14 +72,33 @@ module "non_retrievable_password" {
   source = "../../"
 
   enable_telemetry = false
-  password = {
-    length = 19
+  key_vault_key = {
+    name         = "generated-key"
+    key_vault_id = azurerm_key_vault.example.id
+    key_type     = "RSA"
+    key_size     = 4096
+    key_opts = [
+      "decrypt",
+      "encrypt",
+      "sign",
+      "unwrapKey",
+      "verify",
+      "wrapKey",
+    ]
+
+    rotation_policy = {
+      automatic = {
+        time_before_expiry = "P30D"
+
+      }
+      expire_after         = "P90D"
+      notify_before_expiry = "P29D"
+    }
   }
 }
 
 resource "azurerm_key_vault_secret" "non_retrievable_password" {
-  key_vault_id     = azurerm_key_vault.example.id
-  name             = "non-retrievable-password"
-  value_wo         = module.non_retrievable_password.password_result
-  value_wo_version = module.non_retrievable_password.value_wo_version
+  key_vault_id = azurerm_key_vault.example.id
+  name         = "non-retrievable-password"
+  value        = module.non_retrievable_password.retrievable_public_key_openssh
 }

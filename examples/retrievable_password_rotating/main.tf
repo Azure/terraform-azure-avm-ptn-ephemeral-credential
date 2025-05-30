@@ -73,7 +73,10 @@ module "non_retrievable_password" {
 
   enable_telemetry = false
   password = {
-    length = 19
+    length = 20
+  }
+  time_rotating = {
+    rotation_hours = 1
   }
 }
 

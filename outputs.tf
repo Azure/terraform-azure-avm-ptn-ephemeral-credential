@@ -1,73 +1,43 @@
-output "password_bcrypt_hash" {
-  description = "(String, Sensitive) A bcrypt hash of the generated random string. NOTE: If the generated random string is greater than 72 bytes in length, `bcrypt_hash` will contain a hash of the first 72 bytes."
+output "non_retrievable_private_key" {
+  description = "non-retrievable ephemeral private key, this key would always be discarded after Terraform apply finished and there's no way to read the same key again. Each time you read this output would get a random new key so please use it along with `value_wo_version` output to assign the ephemeral credential to write-only value. Do not use this output when `var.key_vault_key` is not `null`."
   ephemeral   = true
-  value       = try(ephemeral.random_password.this[0].password_bcrypt_hash, null)
+  value       = ephemeral.tls_private_key.non_retrievable_key
 }
 
-output "password_key_vault_secret" {
-  description = "Key Vault Secret resource that stores generated password."
-  value       = try(azurerm_key_vault_secret.password[0], null)
+output "non_retrievable_public_key_openssh" {
+  description = "The OpenSSH encoded non-retrievable public key. This key would always be discarded after Terraform apply finished and there's no way to read the same key again. Do not use this output when `var.key_vault_key` is not `null`."
+  ephemeral   = true
+  value       = ephemeral.tls_private_key.non_retrievable_key.public_key_openssh
+}
+
+output "non_retrievable_public_key_pem" {
+  description = "The PEM encoded non-retrievable public key. This key would always be discarded after Terraform apply finished and there's no way to read the same key again. Do not use this output when `var.key_vault_key` is not `null`."
+  ephemeral   = true
+  value       = ephemeral.tls_private_key.non_retrievable_key.public_key_pem
 }
 
 output "password_result" {
-  description = "(String, Sensitive) The generated random string."
+  description = "(String, Ephemeral) The generated random string. This password is ephemeral and will be discarded after the Terraform apply finishes if `var.key_vault_password_secret` is `null`, otherwise this value will be the password from the Key Vault secret."
   ephemeral   = true
-  value       = try(ephemeral.random_password.this[0].result, null)
+  value       = length(ephemeral.azurerm_key_vault_secret.password) > 0 ? ephemeral.azurerm_key_vault_secret.password[0].value : ephemeral.random_password.this.result
 }
 
-output "rotation_rfc3339" {
-  description = "(String) Configure the rotation timestamp with an [RFC3339](https://datatracker.ietf.org/doc/html/rfc3339#section-5.8) format of the offset timestamp. When the current time has passed the rotation timestamp, the resource will trigger recreation. At least one of the 'rotation_' arguments must be configured."
-  value       = try(time_rotating.this[0].rotation_rfc3339, null)
+output "retrievable_key_vault_key" {
+  description = "The retrievable Key Vault key. Only available when `var.key_vault_key` is not `null`. This key can be used to retrieve the public and private key and other properties."
+  value       = try(azurerm_key_vault_key.this[0], null)
 }
 
-output "time_rotating_id" {
-  description = "(String) RFC3339 format of the `time_rotating`'s timestamp, e.g. `2020-02-12T06:36:13Z`. When the rotation occurs, this value will be updated to the new timestamp. This is useful for tracking when the resource was last rotated."
-  value       = try(time_rotating.this[0].id, null)
+output "retrievable_public_key_openssh" {
+  description = "The OpenSSH encoded retrievable public key. Only available when `var.key_vault_key` is not `null`."
+  value       = try(azurerm_key_vault_key.this[0].public_key_openssh, null)
 }
 
-output "tls_private_key_key_openssh" {
-  description = "(String, Sensitive) Private key data in [OpenSSH PEM (RFC 4716)](https://datatracker.ietf.org/doc/html/rfc4716) format."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].private_key_openssh, null)
-}
-
-output "tls_private_key_pem" {
-  description = "(String, Sensitive) Private key data in [PEM (RFC 1421)](https://datatracker.ietf.org/doc/html/rfc1421) format."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].private_key_pem, null)
-}
-
-output "tls_private_key_pem_pkcs8" {
-  description = "(String, Sensitive) Private key data in [PKCS#8 PEM (RFC 5208)](https://datatracker.ietf.org/doc/html/rfc5208) format."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].private_key_pem_pkcs8, null)
-}
-
-output "tls_private_key_public_key_fingerprint_md5" {
-  description = "(String) The fingerprint of the public key data in OpenSSH MD5 hash format, e.g. `aa:bb:cc:...`. Only available if the selected private key format is compatible, similarly to `public_key_openssh` and the [ECDSA P224 limitations](../../docs#limitations)."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].public_key_fingerprint_md5, null)
-}
-
-output "tls_private_key_public_key_fingerprint_sha256" {
-  description = "(String) The fingerprint of the public key data in OpenSSH SHA256 hash format, e.g. `SHA256:...`. Only available if the selected private key format is compatible, similarly to `public_key_openssh` and the [ECDSA P224 limitations](../../docs#limitations)."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].public_key_fingerprint_sha256, null)
-}
-
-output "tls_private_key_public_key_openssh" {
-  description = "(String) The public key data in [\"Authorized Keys\"](https://www.ssh.com/academy/ssh/authorized_keys/openssh#format-of-the-authorized-keys-file) format. This is not populated for `ECDSA` with curve `P224`, as it is [not supported](../../docs#limitations). **NOTE**: the [underlying](https://pkg.go.dev/encoding/pem#Encode) [libraries](https://pkg.go.dev/golang.org/x/crypto/ssh#MarshalAuthorizedKey) that generate this value append a `\n` at the end of the PEM. In case this disrupts your use case, we recommend using [`trimspace()`](https://www.terraform.io/language/functions/trimspace)."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].public_key_openssh, null)
-}
-
-output "tls_private_key_public_key_pem" {
-  description = "(String) Public key data in [PEM (RFC 1421)](https://datatracker.ietf.org/doc/html/rfc1421) format. **NOTE**: the [underlying](https://pkg.go.dev/encoding/pem#Encode) [libraries](https://pkg.go.dev/golang.org/x/crypto/ssh#MarshalAuthorizedKey) that generate this value append a `\n` at the end of the PEM. In case this disrupts your use case, we recommend using [`trimspace()`](https://www.terraform.io/language/functions/trimspace)."
-  ephemeral   = true
-  value       = try(ephemeral.tls_private_key.this[0].public_key_pem, null)
+output "retrievable_public_key_pem" {
+  description = "The PEM encoded retrievable public key. Only available when `var.key_vault_key` is not `null`."
+  value       = try(azurerm_key_vault_key.this[0].public_key_pem, null)
 }
 
 output "value_wo_version" {
   description = "(Number) Unix format of the `time_rotating`'s timestamp, e.g. `1581490573`. When the rotation occurs, this value will be updated to the new timestamp. This is useful for tracking when the resource was last rotated. You're encouraged to use this output as `value_wo_version` when you want to assign the ephemeral credential to write-only value."
-  value       = try(time_rotating.this[0].unix, null)
+  value       = try(time_rotating.rotating[0].unix, time_static.now[0].unix)
 }
