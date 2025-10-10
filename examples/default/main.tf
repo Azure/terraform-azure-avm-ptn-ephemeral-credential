@@ -1,30 +1,85 @@
-terraform {
-  required_providers {
-    random = {
-      source  = "hashicorp/random"
-      version = "3.7.2"
+resource "azapi_resource" "resource_group" {
+  location = "westus"
+  name     = "ephemeral-credential-${random_string.id.result}"
+  type     = "Microsoft.Resources/resourceGroups@2020-06-01"
+}
+
+resource "azapi_resource" "virtual_network" {
+  location  = azapi_resource.resource_group.location
+  name      = "ephemeral-vnet-${random_string.id.result}"
+  parent_id = azapi_resource.resource_group.id
+  type      = "Microsoft.Network/virtualNetworks@2022-07-01"
+  body = {
+    properties = {
+      addressSpace = {
+        addressPrefixes = [
+          "10.0.0.0/16",
+        ]
+      }
+      dhcpOptions = {
+        dnsServers = [
+        ]
+      }
+      subnets = [
+      ]
     }
-    time = {
-      source  = "hashicorp/time"
-      version = "0.12.1"
-    }
+  }
+  response_export_values    = ["*"]
+  schema_validation_enabled = false
+
+  lifecycle {
+    ignore_changes = [body.properties.subnets]
   }
 }
 
-provider "azurerm" {
-  features {
-    key_vault {
-      purge_soft_deleted_keys_on_destroy = true
-      recover_soft_deleted_keys          = true
+resource "azapi_resource" "subnet" {
+  name      = "ephemeral-subnet-${random_string.id.result}"
+  parent_id = azapi_resource.virtual_network.id
+  type      = "Microsoft.Network/virtualNetworks/subnets@2022-07-01"
+  body = {
+    properties = {
+      addressPrefix = "10.0.2.0/24"
+      delegations = [
+      ]
+      privateEndpointNetworkPolicies    = "Enabled"
+      privateLinkServiceNetworkPolicies = "Enabled"
+      serviceEndpointPolicies = [
+      ]
+      serviceEndpoints = [
+      ]
     }
   }
+  response_export_values    = ["*"]
+  schema_validation_enabled = false
 }
 
-data "azurerm_client_config" "current" {}
 
-resource "azurerm_resource_group" "example" {
-  location = "West Europe"
-  name     = "zjhe-keyvault${random_string.id.result}"
+resource "azapi_resource" "network_interface" {
+  location  = azapi_resource.resource_group.location
+  name      = "nic"
+  parent_id = azapi_resource.resource_group.id
+  type      = "Microsoft.Network/networkInterfaces@2022-07-01"
+  body = {
+    properties = {
+      enableAcceleratedNetworking = false
+      enableIPForwarding          = false
+      ipConfigurations = [
+        {
+          name = "testconfiguration1"
+          properties = {
+            primary                   = true
+            privateIPAddressVersion   = "IPv4"
+            privateIPAllocationMethod = "Dynamic"
+            subnet = {
+              id = azapi_resource.subnet.id
+            }
+          }
+        },
+      ]
+    }
+  }
+  response_export_values    = ["*"]
+  schema_validation_enabled = false
 }
 
 resource "random_string" "id" {
@@ -33,53 +88,75 @@ resource "random_string" "id" {
   upper   = false
 }
 
-resource "azurerm_key_vault" "example" {
-  location                   = azurerm_resource_group.example.location
-  name                       = "ephemeralavm${random_string.id.result}"
-  resource_group_name        = azurerm_resource_group.example.name
-  sku_name                   = "premium"
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  soft_delete_retention_days = 7
-
-  access_policy {
-    key_permissions = [
-      "Create",
-      "Delete",
-      "Get",
-      "Purge",
-      "Recover",
-      "Update",
-      "GetRotationPolicy",
-      "SetRotationPolicy",
-      "List",
-    ]
-    object_id = data.azurerm_client_config.current.object_id
-    secret_permissions = [
-      "Get",
-      "List",
-      "Set",
-      "Delete",
-      "Recover",
-      "Backup",
-      "Restore",
-      "Purge",
-    ]
-    tenant_id = data.azurerm_client_config.current.tenant_id
-  }
-}
-
 module "non_retrievable_password" {
   source = "../../"
 
   enable_telemetry = false
+  # Changing password config would trigger a password update
   password = {
-    length = 19
+    length      = 20
+    special     = true
+    upper       = true
+    lower       = true
+    numeric     = true
+    min_lower   = 2
+    min_upper   = 2
+    min_numeric = 2
+    min_special = 2
   }
 }
 
-resource "azurerm_key_vault_secret" "non_retrievable_password" {
-  key_vault_id     = azurerm_key_vault.example.id
-  name             = "non-retrievable-password"
-  value_wo         = module.non_retrievable_password.password_result
-  value_wo_version = module.non_retrievable_password.value_wo_version
+resource "azapi_resource" "windows_virtual_machine" {
+  location  = azapi_resource.resource_group.location
+  name      = "ephemeral-vm-${random_string.id.result}"
+  parent_id = azapi_resource.resource_group.id
+  type      = "Microsoft.Compute/virtualMachines@2024-07-01"
+  body = {
+    properties = {
+      hardwareProfile = {
+        vmSize = "Standard_F2"
+      }
+      networkProfile = {
+        networkInterfaces = [{
+          id = azapi_resource.network_interface.id
+          properties = {
+            primary = true
+          }
+        }]
+      }
+      osProfile = {
+        adminUsername = "adminuser"
+        computerName  = "example-machine"
+        windowsConfiguration = {
+          enableAutomaticUpdates = true
+        }
+      }
+      storageProfile = {
+        dataDisks = []
+        imageReference = {
+          offer     = "WindowsServer"
+          publisher = "MicrosoftWindowsServer"
+          sku       = "2016-Datacenter"
+          version   = "latest"
+        }
+        osDisk = {
+          caching                 = "ReadWrite"
+          createOption            = "FromImage"
+          name                    = "myosdisk1"
+          osType                  = "Windows"
+          writeAcceleratorEnabled = false
+        }
+      }
+    }
+  }
+  sensitive_body = {
+    properties = {
+      osProfile = {
+        adminPassword = module.non_retrievable_password.password_result
+      }
+    }
+  }
+  sensitive_body_version = {
+    "properties.osProfile.adminPassword" : module.non_retrievable_password.value_wo_version
+  }
 }

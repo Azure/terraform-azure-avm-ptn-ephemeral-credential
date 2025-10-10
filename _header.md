@@ -28,7 +28,7 @@ This module was created to solve:
 - **Support for rotation awareness** without breaking Terraform's refresh model.
 - **Integration with Azure Key Vault** when retrieval is needed securely.
 
-No Azure Key Vault nor HashiCorp Vault is required for basic usage, but they can be integrated for secure storage and retrieval of credentials.
+No Azure Key Vault nor HashiCorp Vault is required for **basic** usage, but they can be integrated for secure storage and retrieval of credentials.
 
 ## Supported Usage Scenarios
 

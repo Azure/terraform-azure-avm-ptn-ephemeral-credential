@@ -1,40 +1,47 @@
-output "non_retrievable_private_key" {
-  description = "non-retrievable ephemeral private key, this key would always be discarded after Terraform apply finished and there's no way to read the same key again. Each time you read this output would get a random new key so please use it along with `value_wo_version` output to assign the ephemeral credential to write-only value. Do not use this output when `var.key_vault_key` is not `null`."
-  ephemeral   = true
-  value       = ephemeral.tls_private_key.non_retrievable_key
-}
-
-output "non_retrievable_public_key_openssh" {
-  description = "The OpenSSH encoded non-retrievable public key. This key would always be discarded after Terraform apply finished and there's no way to read the same key again. Do not use this output when `var.key_vault_key` is not `null`."
-  ephemeral   = true
-  value       = ephemeral.tls_private_key.non_retrievable_key.public_key_openssh
-}
-
-output "non_retrievable_public_key_pem" {
-  description = "The PEM encoded non-retrievable public key. This key would always be discarded after Terraform apply finished and there's no way to read the same key again. Do not use this output when `var.key_vault_key` is not `null`."
-  ephemeral   = true
-  value       = ephemeral.tls_private_key.non_retrievable_key.public_key_pem
-}
-
 output "password_result" {
-  description = "(String, Ephemeral) The generated random string. This password is ephemeral and will be discarded after the Terraform apply finishes if `var.key_vault_password_secret` is `null`, otherwise this value will be the password from the Key Vault secret."
+  description = "(String, Ephemeral) The generated random string. This password is ephemeral and will be discarded after the Terraform apply finishes if `var.key_vault_password_secret` is `null`, otherwise this value will be the password from the Key Vault secret. This output is available even if `var.password` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
   ephemeral   = true
-  value       = length(ephemeral.azurerm_key_vault_secret.password) > 0 ? ephemeral.azurerm_key_vault_secret.password[0].value : ephemeral.random_password.this.result
+  value       = var.password != null && var.retrievable_secret != null ? ephemeral.azurerm_key_vault_secret.retrievable_secret[0].value : ephemeral.random_password.this.result
 }
 
-output "retrievable_key_vault_key" {
-  description = "The retrievable Key Vault key. Only available when `var.key_vault_key` is not `null`. This key can be used to retrieve the public and private key and other properties."
-  value       = try(azurerm_key_vault_key.this[0], null)
+output "private_key_algorithm" {
+  description = "(String) The name of the algorithm used by the given private key. Possible values are: `RSA`, `ECDSA`, `ED25519`. This output is available even if `var.private_key` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
+  ephemeral   = true
+  value       = var.private_key != null ? ephemeral.ephemeraltls_public_key.this[0].algorithm : ephemeral.tls_private_key.dummy.algorithm
 }
 
-output "retrievable_public_key_openssh" {
-  description = "The OpenSSH encoded retrievable public key. Only available when `var.key_vault_key` is not `null`."
-  value       = try(azurerm_key_vault_key.this[0].public_key_openssh, null)
+output "public_key_fingerprint_md5" {
+  description = "(String) The fingerprint of the public key data in OpenSSH MD5 hash format, e.g. `aa:bb:cc:...`. Only available if the selected private key format is compatible, as per the rules for `public_key_openssh` and [ECDSA P224 limitations](../../docs#limitations). This output is available even if `var.private_key` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
+  ephemeral   = true
+  value       = var.private_key != null ? ephemeral.ephemeraltls_public_key.this[0].public_key_fingerprint_md5 : ephemeral.tls_private_key.dummy.public_key_fingerprint_md5
 }
 
-output "retrievable_public_key_pem" {
-  description = "The PEM encoded retrievable public key. Only available when `var.key_vault_key` is not `null`."
-  value       = try(azurerm_key_vault_key.this[0].public_key_pem, null)
+output "public_key_fingerprint_sha256" {
+  description = "(String) The fingerprint of the public key data in OpenSSH SHA256 hash format, e.g. `SHA256:...`. Only available if the selected private key format is compatible, as per the rules for `public_key_openssh` and [ECDSA P224 limitations](../../docs#limitations). This output is available even if `var.private_key` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
+  ephemeral   = true
+  value       = var.private_key != null ? ephemeral.ephemeraltls_public_key.this[0].public_key_fingerprint_sha256 : ephemeral.tls_private_key.dummy.public_key_fingerprint_sha256
+}
+
+output "public_key_openssh" {
+  description = "(String) The public key, in  [OpenSSH PEM (RFC 4716)](https://datatracker.ietf.org/doc/html/rfc4716) format. This is also known as ['Authorized Keys'](https://www.ssh.com/academy/ssh/authorized_keys/openssh#format-of-the-authorized-keys-file) format. This is not populated for `ECDSA` with curve `P224`, as it is [not supported](../../docs#limitations). **NOTE**: the [underlying](https://pkg.go.dev/encoding/pem#Encode) [libraries](https://pkg.go.dev/golang.org/x/crypto/ssh#MarshalAuthorizedKey) that generate this value append a `\n` at the end of the PEM. In case this disrupts your use case, we recommend using [`trimspace()`](https://www.terraform.io/language/functions/trimspace). This output is available even if `var.private_key` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
+  ephemeral   = true
+  value       = var.private_key != null ? ephemeral.ephemeraltls_public_key.this[0].public_key_openssh : ephemeral.tls_private_key.dummy.public_key_openssh
+}
+
+output "public_key_pem" {
+  description = "(String) The public key, in [PEM (RFC 1421)](https://datatracker.ietf.org/doc/html/rfc1421) format. **NOTE**: the [underlying](https://pkg.go.dev/encoding/pem#Encode) [libraries](https://pkg.go.dev/golang.org/x/crypto/ssh#MarshalAuthorizedKey) that generate this value append a `\n` at the end of the PEM. In case this disrupts your use case, we recommend using [`trimspace()`](https://www.terraform.io/language/functions/trimspace). This output is available even if `var.private_key` is `null`, because Terraform DO NOT support `null` as ephemeral output. You MUST NOT use it in that case."
+  ephemeral   = true
+  value       = var.private_key != null ? ephemeral.ephemeraltls_public_key.this[0].public_key_pem : ephemeral.tls_private_key.dummy.public_key_pem
+}
+
+output "retrievable_secret_id" {
+  description = "The ID of the retrievable Key Vault Secret"
+  value       = try(azurerm_key_vault_secret.retrievable_secret[0].id, null)
+}
+
+output "retrievable_secret_name" {
+  description = "The name of the retrievable Key Vault Secret"
+  value       = try(azurerm_key_vault_secret.retrievable_secret[0].name, null)
 }
 
 output "value_wo_version" {

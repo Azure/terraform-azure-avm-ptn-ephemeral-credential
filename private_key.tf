@@ -1,47 +1,25 @@
-ephemeral "tls_private_key" "non_retrievable_key" {
+ephemeral "tls_private_key" "this" {
+  count = var.private_key != null ? 1 : 0
+
   algorithm   = var.private_key.algorithm
   ecdsa_curve = var.private_key.ecdsa_curve
   rsa_bits    = var.private_key.rsa_bits
+
+  lifecycle {
+    precondition {
+      condition     = var.password == null
+      error_message = "`var.password` must be null when `var.private_key` is provided."
+    }
+  }
 }
 
-resource "azurerm_key_vault_key" "this" {
-  count = var.key_vault_key != null ? 1 : 0
+# We have to provide a dummy private key to ensure that the public key can always be generated, since the public key related outputs can refer ephemeral resource only, no conditional expression is allowed.
+ephemeral "tls_private_key" "dummy" {
+  algorithm = "RSA"
+}
 
-  key_opts        = var.key_vault_key.key_opts
-  key_type        = var.key_vault_key.key_type
-  key_vault_id    = var.key_vault_key.key_vault_id
-  name            = var.key_vault_key.name
-  curve           = var.key_vault_key.curve
-  expiration_date = var.key_vault_key.expiration_date
-  key_size        = var.key_vault_key.key_size
-  not_before_date = var.key_vault_key.not_before_date
-  tags            = var.key_vault_key.tags
+ephemeral "ephemeraltls_public_key" "this" {
+  count = var.private_key != null ? 1 : 0
 
-  dynamic "rotation_policy" {
-    for_each = var.key_vault_key.rotation_policy == null ? [] : [var.key_vault_key.rotation_policy]
-
-    content {
-      expire_after         = rotation_policy.value.expire_after
-      notify_before_expiry = rotation_policy.value.notify_before_expiry
-
-      dynamic "automatic" {
-        for_each = rotation_policy.value.automatic == null ? [] : [rotation_policy.value.automatic]
-
-        content {
-          time_after_creation = automatic.value.time_after_creation
-          time_before_expiry  = automatic.value.time_before_expiry
-        }
-      }
-    }
-  }
-  dynamic "timeouts" {
-    for_each = var.key_vault_key.timeouts == null ? [] : [var.key_vault_key.timeouts]
-
-    content {
-      create = timeouts.value.create
-      delete = timeouts.value.delete
-      read   = timeouts.value.read
-      update = timeouts.value.update
-    }
-  }
+  private_key_pem = try(ephemeral.azurerm_key_vault_secret.retrievable_secret[0].value, ephemeral.tls_private_key.this[0].private_key_pem)
 }

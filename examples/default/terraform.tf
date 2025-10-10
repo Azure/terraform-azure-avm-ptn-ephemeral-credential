@@ -1,6 +1,4 @@
 terraform {
-  required_version = ">= 1.10, < 2.0"
-
   required_providers {
     azapi = {
       source  = "Azure/azapi"
@@ -10,25 +8,30 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
-    ephemeraltls = {
-      source  = "lonegunmanb/ephemeraltls"
-      version = "~> 0.2"
-    }
     modtm = {
       source  = "azure/modtm"
       version = "~> 0.3"
     }
     random = {
       source  = "hashicorp/random"
-      version = ">= 3.7.1, < 4.0"
+      version = "3.7.2"
     }
     time = {
       source  = "hashicorp/time"
-      version = ">= 0.7.1, < 1.0"
+      version = "0.12.1"
     }
     tls = {
       source  = "hashicorp/tls"
       version = "~>4.1"
+    }
+  }
+}
+
+provider "azurerm" {
+  features {
+    key_vault {
+      purge_soft_deleted_keys_on_destroy = true
+      recover_soft_deleted_keys          = true
     }
   }
 }
