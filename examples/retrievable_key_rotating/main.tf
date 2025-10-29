@@ -44,7 +44,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_key" {
   source = "../../"
 
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
   private_key = {
     algorithm = "RSA"
     rsa_bits  = 2048

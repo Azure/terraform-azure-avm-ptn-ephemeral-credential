@@ -91,7 +91,7 @@ resource "random_string" "id" {
 module "non_retrievable_password" {
   source = "../../"
 
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
   # Changing password config would trigger a password update
   password = {
     length      = 20

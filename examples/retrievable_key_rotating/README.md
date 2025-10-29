@@ -51,7 +51,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_key" {
   source = "../../"
 
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
   private_key = {
     algorithm = "RSA"
     rsa_bits  = 2048
@@ -225,13 +225,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
 
-- <a name="requirement_modtm"></a> [modtm](#requirement\_modtm) (~> 0.3)
-
 - <a name="requirement_random"></a> [random](#requirement\_random) (3.7.2)
-
-- <a name="requirement_time"></a> [time](#requirement\_time) (0.12.1)
-
-- <a name="requirement_tls"></a> [tls](#requirement\_tls) (~>4.1)
 
 ## Resources
 
@@ -263,7 +257,7 @@ If it is set to false, then no telemetry will be collected.
 
 Type: `bool`
 
-Default: `true`
+Default: `false`
 
 ## Outputs
 

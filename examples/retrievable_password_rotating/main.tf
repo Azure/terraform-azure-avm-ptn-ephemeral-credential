@@ -50,7 +50,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_password" {
   source = "../../"
 
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
   password = {
     length      = 20
     special     = true
