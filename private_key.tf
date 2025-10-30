@@ -4,13 +4,6 @@ ephemeral "tls_private_key" "this" {
   algorithm   = var.private_key.algorithm
   ecdsa_curve = var.private_key.ecdsa_curve
   rsa_bits    = var.private_key.rsa_bits
-
-  lifecycle {
-    precondition {
-      condition     = var.password == null
-      error_message = "`var.password` must be null when `var.private_key` is provided."
-    }
-  }
 }
 
 # We have to provide a dummy private key to ensure that the public key can always be generated, since the public key related outputs can refer ephemeral resource only, no conditional expression is allowed.

@@ -37,6 +37,11 @@ variable "password" {
  - `special` - (Boolean) Include special characters in the result. These are `!@#$%&*()-_=+[]{}<>:?`. Default value is `true`.
  - `upper` - (Boolean) Include uppercase alphabet characters in the result. Default value is `true`.
 EOT
+
+  validation {
+    condition     = var.password == null || var.private_key == null
+    error_message = "`var.password` must be null when `var.private_key` is provided."
+  }
 }
 
 variable "private_key" {
