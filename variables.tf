@@ -124,4 +124,8 @@ EOT
     condition     = var.time_rotating == null || (var.password != null || var.private_key != null)
     error_message = "The `password_time_rotating` variable can only be set when either one of `password` and `private_key` variable is set."
   }
+  validation {
+    condition     = var.time_rotating == null || var.retrievable_secret == null || var.password != null
+    error_message = "`var.time_rotating` cannot be used when `var.retrievable_secret` is set for private keys (only supported for passwords)."
+  }
 }
