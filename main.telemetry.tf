@@ -54,6 +54,6 @@ locals {
   avm_azapi_header = join(" ", [for k, v in local.avm_azapi_headers : "${k}=${v}"])
 }
 locals {
-  main_location = var.location
+  main_location = "none"
 }
 

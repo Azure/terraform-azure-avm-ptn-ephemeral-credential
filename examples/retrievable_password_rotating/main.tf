@@ -1,7 +1,74 @@
+data "azapi_client_config" "current" {}
+
 resource "azapi_resource" "resource_group" {
   location = "westus"
   name     = "ephemeral-credential-${random_string.id.result}"
   type     = "Microsoft.Resources/resourceGroups@2020-06-01"
+}
+
+resource "random_string" "id" {
+  length  = 5
+  special = false
+  upper   = false
+}
+
+resource "azurerm_key_vault" "example" {
+  location                   = azapi_resource.resource_group.location
+  name                       = "ephemeralavm${random_string.id.result}"
+  resource_group_name        = azapi_resource.resource_group.name
+  sku_name                   = "premium"
+  tenant_id                  = data.azapi_client_config.current.tenant_id
+  soft_delete_retention_days = 7
+
+  access_policy {
+    key_permissions = [
+      "Create",
+      "Delete",
+      "Get",
+      "Purge",
+      "Recover",
+      "Update",
+      "GetRotationPolicy",
+      "SetRotationPolicy",
+      "List",
+    ]
+    object_id = data.azapi_client_config.current.object_id
+    secret_permissions = [
+      "Get",
+      "List",
+      "Set",
+      "Delete",
+      "Recover",
+      "Backup",
+      "Restore",
+      "Purge",
+    ]
+    tenant_id = data.azapi_client_config.current.tenant_id
+  }
+}
+
+module "retrievable_password" {
+  source = "../../"
+
+  enable_telemetry = var.enable_telemetry
+  password = {
+    length      = 20
+    special     = true
+    upper       = true
+    lower       = true
+    numeric     = true
+    min_lower   = 2
+    min_upper   = 2
+    min_numeric = 2
+    min_special = 2
+  }
+  retrievable_secret = {
+    key_vault_id = azurerm_key_vault.example.id
+    name         = "ephemeral-vm-password-${random_string.id.result}"
+  }
+  time_rotating = {
+    rotation_months = 1
+  }
 }
 
 resource "azapi_resource" "virtual_network" {
@@ -82,30 +149,6 @@ resource "azapi_resource" "network_interface" {
   schema_validation_enabled = false
 }
 
-resource "random_string" "id" {
-  length  = 5
-  special = false
-  upper   = false
-}
-
-module "non_retrievable_password" {
-  source = "../../"
-
-  enable_telemetry = var.enable_telemetry
-  # Changing password config would trigger a password update
-  password = {
-    length      = 20
-    special     = true
-    upper       = true
-    lower       = true
-    numeric     = true
-    min_lower   = 2
-    min_upper   = 2
-    min_numeric = 2
-    min_special = 2
-  }
-}
-
 resource "azapi_resource" "windows_virtual_machine" {
   location  = azapi_resource.resource_group.location
   name      = "ephemeral-vm-${random_string.id.result}"
@@ -152,11 +195,11 @@ resource "azapi_resource" "windows_virtual_machine" {
   sensitive_body = {
     properties = {
       osProfile = {
-        adminPassword = module.non_retrievable_password.password_result
+        adminPassword = module.retrievable_password.password_result
       }
     }
   }
   sensitive_body_version = {
-    "properties.osProfile.adminPassword" : module.non_retrievable_password.value_wo_version
+    "properties.osProfile.adminPassword" : module.retrievable_password.value_wo_version
   }
 }

@@ -1,3 +1,9 @@
+resource "random_string" "id" {
+  length  = 5
+  special = false
+  upper   = false
+}
+
 resource "azapi_resource" "resource_group" {
   location = "westus"
   name     = "ephemeral-credential-${random_string.id.result}"
@@ -6,7 +12,7 @@ resource "azapi_resource" "resource_group" {
 
 resource "azapi_resource" "virtual_network" {
   location  = azapi_resource.resource_group.location
-  name      = "ephemeral-vnet-${random_string.id.result}"
+  name      = "ephemeral-credential-${random_string.id.result}"
   parent_id = azapi_resource.resource_group.id
   type      = "Microsoft.Network/virtualNetworks@2022-07-01"
   body = {
@@ -33,7 +39,7 @@ resource "azapi_resource" "virtual_network" {
 }
 
 resource "azapi_resource" "subnet" {
-  name      = "ephemeral-subnet-${random_string.id.result}"
+  name      = "ephemeral-credential-subnet${random_string.id.result}"
   parent_id = azapi_resource.virtual_network.id
   type      = "Microsoft.Network/virtualNetworks/subnets@2022-07-01"
   body = {
@@ -53,10 +59,9 @@ resource "azapi_resource" "subnet" {
   schema_validation_enabled = false
 }
 
-
 resource "azapi_resource" "network_interface" {
   location  = azapi_resource.resource_group.location
-  name      = "nic"
+  name      = "ephemeral-credential-nic${random_string.id.result}"
   parent_id = azapi_resource.resource_group.id
   type      = "Microsoft.Network/networkInterfaces@2022-07-01"
   body = {
@@ -82,81 +87,83 @@ resource "azapi_resource" "network_interface" {
   schema_validation_enabled = false
 }
 
-resource "random_string" "id" {
-  length  = 5
-  special = false
-  upper   = false
-}
-
-module "non_retrievable_password" {
+module "non_retrievable_private_key" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
-  # Changing password config would trigger a password update
-  password = {
-    length      = 20
-    special     = true
-    upper       = true
-    lower       = true
-    numeric     = true
-    min_lower   = 2
-    min_upper   = 2
-    min_numeric = 2
-    min_special = 2
+  private_key = {
+    algorithm = "RSA"
+    rsa_bits  = 2048
   }
 }
 
-resource "azapi_resource" "windows_virtual_machine" {
+locals {
+  user_name = "testadmin"
+}
+
+resource "azapi_resource" "virtual_machine" {
   location  = azapi_resource.resource_group.location
-  name      = "ephemeral-vm-${random_string.id.result}"
+  name      = "ephemeral-credential-vm${random_string.id.result}"
   parent_id = azapi_resource.resource_group.id
-  type      = "Microsoft.Compute/virtualMachines@2024-07-01"
+  type      = "Microsoft.Compute/virtualMachines@2023-03-01"
   body = {
     properties = {
       hardwareProfile = {
         vmSize = "Standard_F2"
       }
       networkProfile = {
-        networkInterfaces = [{
-          id = azapi_resource.network_interface.id
-          properties = {
-            primary = true
-          }
-        }]
+        networkInterfaces = [
+          {
+            id = azapi_resource.network_interface.id
+            properties = {
+              primary = false
+            }
+          },
+        ]
       }
       osProfile = {
-        adminUsername = "adminuser"
-        computerName  = "example-machine"
-        windowsConfiguration = {
-          enableAutomaticUpdates = true
+        adminUsername = local.user_name
+        computerName  = "hostname230630032848831819"
+        linuxConfiguration = {
+          disablePasswordAuthentication = true
         }
       }
       storageProfile = {
-        dataDisks = []
         imageReference = {
-          offer     = "WindowsServer"
-          publisher = "MicrosoftWindowsServer"
-          sku       = "2016-Datacenter"
+          offer     = "UbuntuServer"
+          publisher = "Canonical"
+          sku       = "16.04-LTS"
           version   = "latest"
         }
         osDisk = {
           caching                 = "ReadWrite"
           createOption            = "FromImage"
           name                    = "myosdisk1"
-          osType                  = "Windows"
           writeAcceleratorEnabled = false
         }
       }
     }
   }
+  response_export_values    = ["*"]
+  schema_validation_enabled = false
   sensitive_body = {
     properties = {
       osProfile = {
-        adminPassword = module.non_retrievable_password.password_result
+        linuxConfiguration = {
+          ssh = {
+            publicKeys = [
+              {
+                # Though the public key is not sensitive,but the whole private key is ephemeral resource so every time we read it's value, it refreshes, so we have to set it as sensitive body along with a value_wo_version to indicate when should this resource update the key.
+                keyData = module.non_retrievable_private_key.public_key_openssh
+                path    = "/home/${local.user_name}/.ssh/authorized_keys"
+              }
+            ]
+          }
+        }
       }
     }
   }
   sensitive_body_version = {
-    "properties.osProfile.adminPassword" : module.non_retrievable_password.value_wo_version
+    "properties.osProfile.linuxConfiguration.ssh" : module.non_retrievable_private_key.value_wo_version
   }
 }
