@@ -13,6 +13,99 @@ The `pre.sh` script:
 
 The `post.sh` script deletes and purges the Key Vault, then deletes the resource group.
 
+```hcl
+module "retrievable_password" {
+  source = "../../"
+
+  enable_telemetry = var.enable_telemetry
+  password = {
+    length      = 20
+    special     = true
+    upper       = true
+    lower       = true
+    numeric     = true
+    min_lower   = 2
+    min_upper   = 2
+    min_numeric = 2
+    min_special = 2
+  }
+  retrievable_secret = {
+    key_vault_id = var.key_vault_id
+    name         = var.secret_name
+  }
+}
+
+
+```
+
+<!-- markdownlint-disable MD033 -->
+## Requirements
+
+The following requirements are needed by this module:
+
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (~> 1.11)
+
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
+
+## Resources
+
+No resources.
+
+<!-- markdownlint-disable MD013 -->
+## Required Inputs
+
+The following input variables are required:
+
+### <a name="input_key_vault_id"></a> [key\_vault\_id](#input\_key\_vault\_id)
+
+Description: The resource ID of an existing Key Vault to write the retrievable secret into. Provided by `pre.sh` via `terraform.tfvars`.
+
+Type: `string`
+
+## Optional Inputs
+
+The following input variables are optional (have default values):
+
+### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
+
+Description: This variable controls whether or not telemetry is enabled for the module.  
+For more information see <https://aka.ms/avm/telemetryinfo>.  
+If it is set to false, then no telemetry will be collected.
+
+Type: `bool`
+
+Default: `false`
+
+### <a name="input_secret_name"></a> [secret\_name](#input\_secret\_name)
+
+Description: The name of the Key Vault secret to create.
+
+Type: `string`
+
+Default: `"ephemeral-test-password"`
+
+## Outputs
+
+The following outputs are exported:
+
+### <a name="output_password_result_length"></a> [password\_result\_length](#output\_password\_result\_length)
+
+Description: Length of the retrieved ephemeral password. Used to ensure the ephemeral read is exercised.
+
+### <a name="output_retrievable_secret_id"></a> [retrievable\_secret\_id](#output\_retrievable\_secret\_id)
+
+Description: The resource ID of the retrievable Key Vault secret.
+
+## Modules
+
+The following Modules are called:
+
+### <a name="module_retrievable_password"></a> [retrievable\_password](#module\_retrievable\_password)
+
+Source: ../../
+
+Version:
+
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection
 
