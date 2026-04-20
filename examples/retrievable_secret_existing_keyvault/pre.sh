@@ -18,10 +18,10 @@ cd "$SCRIPT_DIR"
 
 LOCATION="${LOCATION:-westus2}"
 
-# Generate a random 6-char lowercase alphanumeric suffix.
-# Use openssl to avoid SIGPIPE (141) from `tr < /dev/urandom | head -c 6`
-# under `set -o pipefail`.
-SUFFIX="$(openssl rand -hex 3)"
+# Generate a random suffix using the bash $RANDOM builtin (same approach as
+# Azure/terraform-azurerm-avm-ptn-alz examples). Avoids SIGPIPE (141) from
+# piping /dev/urandom through `head` under `set -o pipefail`.
+SUFFIX="${RANDOM}${RANDOM}"
 
 RG_NAME="rg-avmec-${SUFFIX}"
 KV_NAME="kvavmec${SUFFIX}"
