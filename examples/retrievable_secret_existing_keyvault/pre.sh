@@ -5,6 +5,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+if ! az account show --output none 2>/dev/null; then
+  : "${ARM_CLIENT_ID:?ARM_CLIENT_ID is required for OIDC login}"
+  : "${ARM_TENANT_ID:?ARM_TENANT_ID is required for OIDC login}"
+  : "${ARM_SUBSCRIPTION_ID:?ARM_SUBSCRIPTION_ID is required for OIDC login}"
+  : "${ARM_OIDC_REQUEST_TOKEN:?ARM_OIDC_REQUEST_TOKEN is required for OIDC login}"
+  : "${ARM_OIDC_REQUEST_URL:?ARM_OIDC_REQUEST_URL is required for OIDC login}"
+
+  echo "Logging in to Azure via OIDC..." >&2
+  FEDERATED_TOKEN="$(curl -sSL -H "Authorization: Bearer ${ARM_OIDC_REQUEST_TOKEN}" \
+    "${ARM_OIDC_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value')"
+  az login --service-principal \
+    --username "${ARM_CLIENT_ID}" \
+    --tenant "${ARM_TENANT_ID}" \
+    --federated-token "${FEDERATED_TOKEN}" \
+    --output none
+  az account set --subscription "${ARM_SUBSCRIPTION_ID}" --output none
+fi
+
 LOCATION="${LOCATION:-westus2}"
 
 SUFFIX="${RANDOM}"
