@@ -36,13 +36,12 @@ az group create \
   --location "${LOCATION}" \
   --output none
 
-echo "Creating key vault ${KV_NAME} (purge protection disabled)..." >&2
+echo "Creating key vault ${KV_NAME}..." >&2
 az keyvault create \
   --name "${KV_NAME}" \
   --resource-group "${RG_NAME}" \
   --location "${LOCATION}" \
   --enable-rbac-authorization false \
-  --enable-purge-protection false \
   --retention-days 7 \
   --output none
 
