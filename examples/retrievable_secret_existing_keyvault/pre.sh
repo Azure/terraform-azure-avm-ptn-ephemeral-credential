@@ -19,7 +19,9 @@ cd "$SCRIPT_DIR"
 LOCATION="${LOCATION:-westus2}"
 
 # Generate a random 6-char lowercase alphanumeric suffix.
-SUFFIX="$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 6)"
+# Use openssl to avoid SIGPIPE (141) from `tr < /dev/urandom | head -c 6`
+# under `set -o pipefail`.
+SUFFIX="$(openssl rand -hex 3)"
 
 RG_NAME="rg-avmec-${SUFFIX}"
 KV_NAME="kvavmec${SUFFIX}"
