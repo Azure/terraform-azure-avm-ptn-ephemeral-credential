@@ -25,14 +25,14 @@ resource "azurerm_key_vault_secret" "retrievable_secret" {
 ephemeral "azurerm_key_vault_secret" "retrievable_secret" {
   count = var.retrievable_secret != null ? 1 : 0
 
-  key_vault_id = azurerm_key_vault_secret.retrievable_secret[0].key_vault_id
+  # `key_vault_id` and `name` on `azurerm_key_vault_secret` are pass-through
+  # inputs that remain known at plan time, so a plain reference to them (or a
+  # `depends_on`) is not sufficient to defer this ephemeral read to apply.
+  # Deriving `key_vault_id` from the computed `resource_versionless_id`
+  # attribute (only known after the managed resource is created) forces the
+  # ephemeral read to happen during apply, after the secret exists in Key
+  # Vault. Without this, Terraform attempts the read during plan and fails
+  # with `SecretNotFound`.
+  key_vault_id = trimsuffix(azurerm_key_vault_secret.retrievable_secret[0].resource_versionless_id, "/secrets/${azurerm_key_vault_secret.retrievable_secret[0].name}")
   name         = azurerm_key_vault_secret.retrievable_secret[0].name
-
-  # Force this ephemeral read to be deferred to the apply phase. Without an
-  # explicit dependency, both `key_vault_id` and `name` are known at plan
-  # time (they are pass-through inputs of `azurerm_key_vault_secret`), which
-  # causes Terraform to attempt the read during plan and fail with
-  # `SecretNotFound` because the managed resource above has not yet created
-  # the secret.
-  depends_on = [azurerm_key_vault_secret.retrievable_secret]
 }
