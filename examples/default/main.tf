@@ -80,6 +80,10 @@ resource "azapi_resource" "network_interface" {
   }
   response_export_values    = ["*"]
   schema_validation_enabled = false
+
+  retry = {
+    error_message_regex = ["NicReservedForAnotherVm"]
+  }
 }
 
 resource "random_string" "id" {
