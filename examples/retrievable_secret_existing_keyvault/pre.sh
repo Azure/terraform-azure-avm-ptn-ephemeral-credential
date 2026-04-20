@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-#
-# pre.sh - Provision the supporting infrastructure for the
-# `retrievable_secret_existing_keyvault` example.
-#
-# Creates a resource group and a Key Vault (with purge protection disabled
-# so it can be fully destroyed during teardown), then writes the resulting
-# Key Vault id into `terraform.tfvars` for consumption by the Terraform
-# configuration in this directory.
-#
-# The names of the created resources are persisted to `.test.env` so that
-# `post.sh` can clean them up.
 
 set -euo pipefail
 
@@ -18,10 +7,7 @@ cd "$SCRIPT_DIR"
 
 LOCATION="${LOCATION:-westus2}"
 
-# Generate a random suffix using the bash $RANDOM builtin (same approach as
-# Azure/terraform-azurerm-avm-ptn-alz examples). Avoids SIGPIPE (141) from
-# piping /dev/urandom through `head` under `set -o pipefail`.
-SUFFIX="${RANDOM}${RANDOM}"
+SUFFIX="${RANDOM}"
 
 RG_NAME="rg-avmec-${SUFFIX}"
 KV_NAME="kvavmec${SUFFIX}"
@@ -42,9 +28,7 @@ az keyvault create \
   --retention-days 7 \
   --output none
 
-# Resolve the current principal's object id so we can grant secret permissions
-# via an access policy. Try signed-in user first, then fall back to service
-# principal lookup (CI runs as an SPN).
+# Resolve the current principal's object id (signed-in user or SPN).
 OBJECT_ID="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)"
 if [ -z "${OBJECT_ID}" ]; then
   SP_APP_ID="$(az account show --query user.name -o tsv)"

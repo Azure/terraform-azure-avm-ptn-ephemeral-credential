@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-#
-# post.sh - Tear down the supporting infrastructure created by `pre.sh` for
-# the `retrievable_secret_existing_keyvault` example.
-#
-# Reads the Key Vault and resource group names from `.test.env`, deletes
-# and purges the Key Vault, then deletes the resource group.
 
 set -euo pipefail
 
