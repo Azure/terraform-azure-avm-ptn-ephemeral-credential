@@ -7,7 +7,7 @@ This deploys a non-retrievable ephemeral password with a 1 hour TTL.
 Changing time-rotation or password generation settings will cause regeneration of the value\_wo\_version, which leads to an update of the downstream resources.
 
 ```hcl
-data "azapi_client_config" "current" {}
+data "azurerm_client_config" "current" {}
 
 resource "azapi_resource" "resource_group" {
   location = "westus"
@@ -26,7 +26,7 @@ resource "azurerm_key_vault" "example" {
   name                       = "ephemeralavm${random_string.id.result}"
   resource_group_name        = azapi_resource.resource_group.name
   sku_name                   = "premium"
-  tenant_id                  = data.azapi_client_config.current.tenant_id
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
   soft_delete_retention_days = 7
 
   access_policy {
@@ -41,7 +41,7 @@ resource "azurerm_key_vault" "example" {
       "SetRotationPolicy",
       "List",
     ]
-    object_id = data.azapi_client_config.current.object_id
+    object_id = data.azurerm_client_config.current.object_id
     secret_permissions = [
       "Get",
       "List",
@@ -52,7 +52,7 @@ resource "azurerm_key_vault" "example" {
       "Restore",
       "Purge",
     ]
-    tenant_id = data.azapi_client_config.current.tenant_id
+    tenant_id = data.azurerm_client_config.current.tenant_id
   }
 }
 
@@ -238,7 +238,7 @@ The following resources are used by this module:
 - [azapi_resource.windows_virtual_machine](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azurerm_key_vault.example](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) (resource)
 - [random_string.id](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/string) (resource)
-- [azapi_client_config.current](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
+- [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
