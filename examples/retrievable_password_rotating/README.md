@@ -154,9 +154,13 @@ resource "azapi_resource" "network_interface" {
       ]
     }
   }
-  response_export_values    = ["*"]
+  response_export_values = ["*"]
+  retry = {
+    error_message_regex = ["NicReservedForAnotherVm"]
+  }
   schema_validation_enabled = false
 }
+
 
 resource "azapi_resource" "windows_virtual_machine" {
   location  = azapi_resource.resource_group.location

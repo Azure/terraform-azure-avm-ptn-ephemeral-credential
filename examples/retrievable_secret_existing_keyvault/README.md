@@ -88,10 +88,6 @@ Default: `"ephemeral-test-password"`
 
 The following outputs are exported:
 
-### <a name="output_password_result_length"></a> [password\_result\_length](#output\_password\_result\_length)
-
-Description: Length of the retrieved ephemeral password. Used to ensure the ephemeral read is exercised.
-
 ### <a name="output_retrievable_secret_id"></a> [retrievable\_secret\_id](#output\_retrievable\_secret\_id)
 
 Description: The resource ID of the retrievable Key Vault secret.

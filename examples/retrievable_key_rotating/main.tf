@@ -137,12 +137,11 @@ resource "azapi_resource" "network_interface" {
       ]
     }
   }
-  response_export_values    = ["*"]
-  schema_validation_enabled = false
-
+  response_export_values = ["*"]
   retry = {
     error_message_regex = ["NicReservedForAnotherVm"]
   }
+  schema_validation_enabled = false
 }
 
 resource "azapi_resource" "virtual_machine" {
