@@ -25,14 +25,16 @@ resource "azurerm_key_vault_secret" "retrievable_secret" {
 ephemeral "azurerm_key_vault_secret" "retrievable_secret" {
   count = var.retrievable_secret != null ? 1 : 0
 
-  # `key_vault_id` and `name` on `azurerm_key_vault_secret` are pass-through
-  # inputs that remain known at plan time, so a plain reference to them (or a
-  # `depends_on`) is not sufficient to defer this ephemeral read to apply.
-  # Deriving `key_vault_id` from the computed `resource_versionless_id`
-  # attribute (only known after the managed resource is created) forces the
-  # ephemeral read to happen during apply, after the secret exists in Key
-  # Vault. Without this, Terraform attempts the read during plan and fails
-  # with `SecretNotFound`.
-  key_vault_id = trimsuffix(azurerm_key_vault_secret.retrievable_secret[0].resource_versionless_id, "/secrets/${azurerm_key_vault_secret.retrievable_secret[0].name}")
+  # Derive `key_vault_id` from the managed secret's computed
+  # `resource_versionless_id` attribute (only known after apply) using the
+  # `azapi` provider-defined `parse_resource_id` function. This makes the
+  # ephemeral block's configuration unknown at plan time, forcing the read
+  # to be deferred until apply, after the secret has been created. A plain
+  # reference to `azurerm_key_vault_secret.retrievable_secret[0].key_vault_id`
+  # (or a `depends_on`) is not sufficient because both `key_vault_id` and
+  # `name` are pass-through inputs that remain known at plan time, which
+  # would cause Terraform to attempt the read during plan and fail with
+  # `SecretNotFound`.
+  key_vault_id = provider::azapi::parse_resource_id("Microsoft.KeyVault/vaults/secrets", azurerm_key_vault_secret.retrievable_secret[0].resource_versionless_id).parent_id
   name         = azurerm_key_vault_secret.retrievable_secret[0].name
 }
