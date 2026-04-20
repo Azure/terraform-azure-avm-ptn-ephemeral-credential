@@ -124,7 +124,7 @@ resource "azapi_resource" "windows_virtual_machine" {
   body = {
     properties = {
       hardwareProfile = {
-        vmSize = "Standard_F2"
+        vmSize = "Standard_D2s_v5"
       }
       networkProfile = {
         networkInterfaces = [{

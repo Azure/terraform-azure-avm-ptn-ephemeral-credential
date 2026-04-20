@@ -119,7 +119,7 @@ resource "azapi_resource" "virtual_machine" {
   body = {
     properties = {
       hardwareProfile = {
-        vmSize = "Standard_F2"
+        vmSize = "Standard_D2s_v5"
       }
       networkProfile = {
         networkInterfaces = [
