@@ -62,6 +62,12 @@ Description: The resource ID of an existing Key Vault to write the retrievable s
 
 Type: `string`
 
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region where the existing Key Vault resides. Provided by `pre.sh` via `terraform.tfvars`.
+
+Type: `string`
+
 ## Optional Inputs
 
 The following input variables are optional (have default values):
