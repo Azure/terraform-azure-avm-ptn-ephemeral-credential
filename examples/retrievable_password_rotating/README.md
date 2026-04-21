@@ -7,10 +7,23 @@ This deploys a non-retrievable ephemeral password with a 1 hour TTL.
 Changing time-rotation or password generation settings will cause regeneration of the value\_wo\_version, which leads to an update of the downstream resources.
 
 ```hcl
-data "azapi_client_config" "current" {}
+data "azurerm_client_config" "current" {}
+
+module "regions" {
+  source  = "Azure/avm-utl-regions/azurerm"
+  version = "0.12.0"
+
+  enable_telemetry = var.enable_telemetry
+  is_recommended   = true
+}
+
+resource "random_integer" "region_index" {
+  max = length(module.regions.regions) - 1
+  min = 0
+}
 
 resource "azapi_resource" "resource_group" {
-  location = "westus"
+  location = module.regions.regions[random_integer.region_index.result].name
   name     = "ephemeral-credential-${random_string.id.result}"
   type     = "Microsoft.Resources/resourceGroups@2020-06-01"
 }
@@ -26,7 +39,7 @@ resource "azurerm_key_vault" "example" {
   name                       = "ephemeralavm${random_string.id.result}"
   resource_group_name        = azapi_resource.resource_group.name
   sku_name                   = "premium"
-  tenant_id                  = data.azapi_client_config.current.tenant_id
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
   soft_delete_retention_days = 7
 
   access_policy {
@@ -41,7 +54,7 @@ resource "azurerm_key_vault" "example" {
       "SetRotationPolicy",
       "List",
     ]
-    object_id = data.azapi_client_config.current.object_id
+    object_id = data.azurerm_client_config.current.object_id
     secret_permissions = [
       "Get",
       "List",
@@ -52,7 +65,7 @@ resource "azurerm_key_vault" "example" {
       "Restore",
       "Purge",
     ]
-    tenant_id = data.azapi_client_config.current.tenant_id
+    tenant_id = data.azurerm_client_config.current.tenant_id
   }
 }
 
@@ -154,9 +167,13 @@ resource "azapi_resource" "network_interface" {
       ]
     }
   }
-  response_export_values    = ["*"]
+  response_export_values = ["*"]
+  retry = {
+    error_message_regex = ["NicReservedForAnotherVm"]
+  }
   schema_validation_enabled = false
 }
+
 
 resource "azapi_resource" "windows_virtual_machine" {
   location  = azapi_resource.resource_group.location
@@ -166,7 +183,7 @@ resource "azapi_resource" "windows_virtual_machine" {
   body = {
     properties = {
       hardwareProfile = {
-        vmSize = "Standard_F2"
+        vmSize = "Standard_D2s_v5"
       }
       networkProfile = {
         networkInterfaces = [{
@@ -237,8 +254,9 @@ The following resources are used by this module:
 - [azapi_resource.virtual_network](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.windows_virtual_machine](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azurerm_key_vault.example](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) (resource)
+- [random_integer.region_index](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/integer) (resource)
 - [random_string.id](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/string) (resource)
-- [azapi_client_config.current](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
+- [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) (data source)
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -266,6 +284,12 @@ No outputs.
 ## Modules
 
 The following Modules are called:
+
+### <a name="module_regions"></a> [regions](#module\_regions)
+
+Source: Azure/avm-utl-regions/azurerm
+
+Version: 0.12.0
 
 ### <a name="module_retrievable_password"></a> [retrievable\_password](#module\_retrievable\_password)
 

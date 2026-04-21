@@ -5,8 +5,21 @@
 This deploys a non-retrievable ephemeral password without TTL. Each time you read the password, it will be regenerated, and the`value_wo_version` will only increase when password generation settings has been changed.
 
 ```hcl
+module "regions" {
+  source  = "Azure/avm-utl-regions/azurerm"
+  version = "0.12.0"
+
+  enable_telemetry = var.enable_telemetry
+  is_recommended   = true
+}
+
+resource "random_integer" "region_index" {
+  max = length(module.regions.regions) - 1
+  min = 0
+}
+
 resource "azapi_resource" "resource_group" {
-  location = "westus"
+  location = module.regions.regions[random_integer.region_index.result].name
   name     = "ephemeral-credential-${random_string.id.result}"
   type     = "Microsoft.Resources/resourceGroups@2020-06-01"
 }
@@ -85,7 +98,10 @@ resource "azapi_resource" "network_interface" {
       ]
     }
   }
-  response_export_values    = ["*"]
+  response_export_values = ["*"]
+  retry = {
+    error_message_regex = ["NicReservedForAnotherVm"]
+  }
   schema_validation_enabled = false
 }
 
@@ -121,7 +137,7 @@ resource "azapi_resource" "windows_virtual_machine" {
   body = {
     properties = {
       hardwareProfile = {
-        vmSize = "Standard_F2"
+        vmSize = "Standard_D2s_v5"
       }
       networkProfile = {
         networkInterfaces = [{
@@ -191,6 +207,7 @@ The following resources are used by this module:
 - [azapi_resource.subnet](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.virtual_network](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.windows_virtual_machine](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
+- [random_integer.region_index](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/integer) (resource)
 - [random_string.id](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/string) (resource)
 
 <!-- markdownlint-disable MD013 -->
@@ -225,6 +242,12 @@ The following Modules are called:
 Source: ../../
 
 Version:
+
+### <a name="module_regions"></a> [regions](#module\_regions)
+
+Source: Azure/avm-utl-regions/azurerm
+
+Version: 0.12.0
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection

@@ -1,5 +1,18 @@
+module "regions" {
+  source  = "Azure/avm-utl-regions/azurerm"
+  version = "0.12.0"
+
+  enable_telemetry = var.enable_telemetry
+  is_recommended   = true
+}
+
+resource "random_integer" "region_index" {
+  max = length(module.regions.regions) - 1
+  min = 0
+}
+
 resource "azapi_resource" "resource_group" {
-  location = "westus"
+  location = module.regions.regions[random_integer.region_index.result].name
   name     = "ephemeral-credential-${random_string.id.result}"
   type     = "Microsoft.Resources/resourceGroups@2020-06-01"
 }
@@ -78,7 +91,10 @@ resource "azapi_resource" "network_interface" {
       ]
     }
   }
-  response_export_values    = ["*"]
+  response_export_values = ["*"]
+  retry = {
+    error_message_regex = ["NicReservedForAnotherVm"]
+  }
   schema_validation_enabled = false
 }
 
@@ -114,7 +130,7 @@ resource "azapi_resource" "windows_virtual_machine" {
   body = {
     properties = {
       hardwareProfile = {
-        vmSize = "Standard_F2"
+        vmSize = "Standard_D2s_v5"
       }
       networkProfile = {
         networkInterfaces = [{
