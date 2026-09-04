@@ -7,12 +7,11 @@ resource "random_string" "id" {
 }
 
 resource "azurerm_key_vault" "example" {
-  location                   = azapi_resource.resource_group.location
-  name                       = "ephemeralavm${random_string.id.result}"
-  resource_group_name        = azapi_resource.resource_group.name
-  sku_name                   = "premium"
-  tenant_id                  = data.azurerm_client_config.current.tenant_id
-  soft_delete_retention_days = 7
+  location            = azapi_resource.resource_group.location
+  name                = "ephemeralavm${random_string.id.result}"
+  resource_group_name = azapi_resource.resource_group.name
+  sku_name            = "premium"
+  tenant_id           = data.azurerm_client_config.current.tenant_id
 
   access_policy {
     key_permissions = [
@@ -39,6 +38,7 @@ resource "azurerm_key_vault" "example" {
     ]
     tenant_id = data.azurerm_client_config.current.tenant_id
   }
+  soft_delete_retention_days = 7
 }
 
 module "retrievable_key" {
