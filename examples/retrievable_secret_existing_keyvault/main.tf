@@ -18,5 +18,3 @@ module "retrievable_password" {
     name         = var.secret_name
   }
 }
-
-

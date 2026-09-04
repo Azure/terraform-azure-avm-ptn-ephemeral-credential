@@ -66,7 +66,6 @@ resource "azapi_resource" "subnet" {
   schema_validation_enabled = false
 }
 
-
 resource "azapi_resource" "network_interface" {
   location  = azapi_resource.resource_group.location
   name      = "nic"
