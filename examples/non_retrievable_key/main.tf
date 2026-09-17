@@ -8,7 +8,7 @@ module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
   version = "0.12.0"
 
-  enable_telemetry = var.enable_telemetry
+  enable_telemetry = false
   is_recommended   = true
 }
 
@@ -106,7 +106,7 @@ resource "azapi_resource" "network_interface" {
 module "non_retrievable_private_key" {
   source = "../../"
 
-  enable_telemetry = var.enable_telemetry
+  enable_telemetry = false
   private_key = {
     algorithm = "RSA"
     rsa_bits  = 2048
