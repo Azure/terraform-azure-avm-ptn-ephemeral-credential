@@ -13,7 +13,7 @@ module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
   version = "0.12.0"
 
-  enable_telemetry = var.enable_telemetry
+  enable_telemetry = false
   is_recommended   = true
 }
 
@@ -72,7 +72,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_password" {
   source = "../../"
 
-  enable_telemetry = var.enable_telemetry
+  enable_telemetry = false
   password = {
     length      = 20
     special     = true
