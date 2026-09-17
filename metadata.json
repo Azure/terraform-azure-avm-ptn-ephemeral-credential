@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-verified-modules-tools/main/src/Avm.Authoring/Resources/Schemas/v1/avm-module-metadata.schema.json",
+  "moduleDisplayName": "Ephemeral Credentials Generator",
+  "moduleDescription": "AVM Pattern Module for Ephemeral Credentials Generator",
+  "canonicalType": "ephemeral-credential",
+  "owners": [
+    "lonegunmanb"
+  ],
+  "telemetryIdPrefix": "46d3xtrf.ptn.23b5277"
+}
