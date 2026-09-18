@@ -17,7 +17,7 @@ The `post.sh` script deletes and purges the Key Vault, then deletes the resource
 module "retrievable_password" {
   source = "../../"
 
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
   password = {
     length      = 20
     special     = true
