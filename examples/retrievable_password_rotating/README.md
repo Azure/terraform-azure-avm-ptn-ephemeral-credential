@@ -240,7 +240,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
 
-- <a name="requirement_random"></a> [random](#requirement\_random) (3.7.2)
+- <a name="requirement_random"></a> [random](#requirement\_random) (3.9.1)
 
 ## Resources
 
@@ -252,8 +252,8 @@ The following resources are used by this module:
 - [azapi_resource.virtual_network](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azapi_resource.windows_virtual_machine](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [azurerm_key_vault.example](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) (resource)
-- [random_integer.region_index](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/integer) (resource)
-- [random_string.id](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/string) (resource)
+- [random_integer.region_index](https://registry.terraform.io/providers/hashicorp/random/3.9.1/docs/resources/integer) (resource)
+- [random_string.id](https://registry.terraform.io/providers/hashicorp/random/3.9.1/docs/resources/string) (resource)
 - [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) (data source)
 
 <!-- markdownlint-disable MD013 -->
