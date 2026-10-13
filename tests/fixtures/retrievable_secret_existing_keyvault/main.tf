@@ -1,6 +1,8 @@
 terraform {
   required_version = "~> 1.11"
 
+  backend "local" {}
+
   required_providers {
     azapi = {
       source  = "Azure/azapi"
@@ -30,7 +32,8 @@ module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
   version = "0.12.0"
 
-  is_recommended = true
+  enable_telemetry = false
+  is_recommended   = true
 }
 
 resource "random_integer" "region_index" {
