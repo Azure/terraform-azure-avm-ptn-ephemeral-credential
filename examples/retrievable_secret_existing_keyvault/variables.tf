@@ -1,6 +1,6 @@
 variable "key_vault_id" {
   type        = string
-  description = "The resource ID of an existing Key Vault to write the retrievable secret into. Provided by `pre.sh` via `terraform.tfvars`."
+  description = "The resource ID of an existing Key Vault to write the retrievable secret into. Provided by `pre.ps1` via `terraform.tfvars`."
 }
 
 variable "enable_telemetry" {
