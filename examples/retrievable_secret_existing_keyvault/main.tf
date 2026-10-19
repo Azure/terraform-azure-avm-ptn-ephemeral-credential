@@ -1,6 +1,7 @@
 module "retrievable_password" {
   source = "../../"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   password = {
     length      = 20

@@ -44,6 +44,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_key" {
   source = "../../"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   private_key = {
     algorithm = "RSA"
@@ -62,6 +63,7 @@ module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
   version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }

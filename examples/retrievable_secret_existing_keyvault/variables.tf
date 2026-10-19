@@ -18,3 +18,10 @@ variable "secret_name" {
   default     = "ephemeral-test-password"
   description = "The name of the Key Vault secret to create."
 }
+
+variable "location" {
+  type        = string
+  default     = "eastus"
+  description = "The Azure region for this module's resources or telemetry deployment."
+  nullable    = false
+}
