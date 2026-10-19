@@ -2,8 +2,9 @@ data "azurerm_client_config" "current" {}
 
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -63,6 +64,7 @@ resource "azurerm_key_vault" "example" {
 module "retrievable_password" {
   source = "../../"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   password = {
     length      = 20

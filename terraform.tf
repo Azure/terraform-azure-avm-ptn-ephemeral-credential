@@ -14,10 +14,6 @@ terraform {
       source  = "lonegunmanb/ephemeraltls"
       version = "~> 0.2"
     }
-    modtm = {
-      source  = "azure/modtm"
-      version = "~> 0.3"
-    }
     random = {
       source  = "hashicorp/random"
       version = ">= 3.7.1, < 4.0"
