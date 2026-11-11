@@ -1,6 +1,6 @@
 # Retrievable secret with pre-existing Key Vault example
 
-This example exercises `retrievable_secret` against a Key Vault created by a separate prerequisite Terraform configuration using `pre.ps1`.
+This example exercises `retrievable_secret` against a Key Vault created by a separate prerequisite Terraform configuration using `pre.ps1`. Both hooks use Terraform from the `Avm.Authoring` managed cache rather than `PATH`.
 
 The existing vault ID and secret name are known during plan. The module derives the ephemeral read's vault ID from the managed secret's computed resource ID, deferring the read until apply so it does not fail with `SecretNotFound` before the secret is created.
 

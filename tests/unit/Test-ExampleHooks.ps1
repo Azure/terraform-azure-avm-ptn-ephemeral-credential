@@ -5,9 +5,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$existingTerraform = Get-Command terraform -ErrorAction SilentlyContinue
-if ($existingTerraform -and $existingTerraform.CommandType -in @('Alias', 'Function')) {
-    throw 'A Terraform alias or function already exists; refusing to replace it.'
+if (Test-Path -LiteralPath 'Function:\Invoke-ExampleTerraformMock') {
+    throw 'The Terraform test function already exists; refusing to replace it.'
 }
 if (Test-Path -LiteralPath $TestRoot) {
     throw 'TestRoot must be a new, dedicated directory.'
@@ -31,10 +30,20 @@ $mock = @{
     Fixture = $configuration
     Prerequisites = $prerequisites
     ExpectedDataDirectory = Join-Path $prerequisites '.terraform'
+    ToolPath = 'Invoke-ExampleTerraformMock'
+    ToolResolutions = [System.Collections.Generic.List[string]]::new()
 }
 
 $global:__avmExampleHooksMock = $mock
-Set-Item -Path Function:\global:terraform -Value {
+function Get-AvmTool {
+    param([string] $Name, [string] $Path)
+    if ($Name -cne 'terraform' -or [System.IO.Path]::GetFullPath($Path) -cne $TestRoot) {
+        throw 'The hook must resolve managed Terraform using the module root.'
+    }
+    $mock.ToolResolutions.Add($Path)
+    [pscustomobject]@{ Path = $mock.ToolPath }
+}
+Set-Item -Path Function:\global:Invoke-ExampleTerraformMock -Value {
     if ($args[0] -cne "-chdir=$($global:__avmExampleHooksMock.Fixture)" -or $PWD.Path -cne $global:__avmExampleHooksMock.Prerequisites -or $env:TF_DATA_DIR -cne $global:__avmExampleHooksMock.ExpectedDataDirectory) {
         throw 'A hook changed the configuration, state working directory or initialization data path.'
     }
@@ -63,10 +72,14 @@ function Assert-HookFailure {
 
 $originalLocation = $PWD.Path
 $originalDataDirectory = $env:TF_DATA_DIR
+$originalPath = $env:PATH
+$env:PATH = ''
 $env:TF_DATA_DIR = $null
 $variables = Join-Path $testExample 'terraform.tfvars'
 try {
+    if (Get-Command terraform -ErrorAction SilentlyContinue) { throw 'Terraform must be absent from PATH for this regression test.' }
     & (Join-Path $testExample 'pre.ps1')
+    if ($mock.ToolResolutions.Count -ne 1) { throw 'Setup did not resolve managed Terraform.' }
     foreach ($file in @('main.tf', 'variables.tf')) {
         $generatedFile = Join-Path $configuration $file
         $templateFile = Join-Path $fixture "$file.tftpl"
@@ -113,6 +126,16 @@ try {
     $syntheticState = 'synthetic state marker, not Terraform state'
     Set-Content -LiteralPath $statePath -Value $syntheticState -NoNewline
     $savedVariables = Get-Content -LiteralPath $variables -Raw
+    $mock.ToolPath = $null
+    $callsBeforeResolutionFailure = $mock.Calls.Count
+    Assert-HookFailure -Hook 'pre.ps1' -ExpectedMessage 'Managed Terraform is unavailable'
+    Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'Managed Terraform is unavailable'
+    if ($mock.Calls.Count -ne $callsBeforeResolutionFailure -or
+        (Get-Content -LiteralPath $statePath -Raw) -cne $syntheticState -or
+        (Get-Content -LiteralPath $variables -Raw) -cne $savedVariables) {
+        throw 'Failed tool resolution executed Terraform or changed state or outputs.'
+    }
+    $mock.ToolPath = 'Invoke-ExampleTerraformMock'
     $mock.FailedCommand = 'init -input=false'
     Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'initialization failed'
     if (-not (Test-Path -LiteralPath $variables)) { throw 'Failed cleanup initialization removed terraform.tfvars.' }
@@ -206,10 +229,12 @@ try {
                     throw 'Unexpected initialization path.'
                 }
                 $calls = [System.Collections.Generic.List[object]]::new()
-                function terraform { $calls.Add(@($args)) }
+                $terraform = { $calls.Add(@($args)) }
                 $commands = @($ast.FindAll({
                     param($node)
-                    $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'terraform'
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.InvocationOperator -eq [System.Management.Automation.Language.TokenKind]::Ampersand -and
+                    $node.CommandElements[0].Extent.Text -eq '$terraform'
                 }, $true))
                 foreach ($command in $commands) { & ([scriptblock]::Create($command.Extent.Text)) }
                 $expectedCommands = if ($hook -eq 'pre.ps1') {
@@ -239,9 +264,10 @@ try {
     Rename-Item -LiteralPath (Join-Path $fixture 'main.tf.tftpl') -NewName 'main.tf.missing'
     Assert-HookFailure -Hook 'pre.ps1' -ExpectedMessage 'fixture is missing'
     Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'fixture is missing'
-    Write-Output 'Passed 12 synthetic hook cases plus Windows/Unix source, backend, init-path and exact argv models, fixture opt-out and failed-cleanup state/output retention. No Terraform binary or provider was executed.'
+    Write-Output 'Passed synthetic hook cases with Terraform absent from PATH, managed-tool resolution failures, Windows/Unix paths and exact argv, and failed-cleanup state/output retention. No Terraform binary or provider was executed.'
 } finally {
     $env:TF_DATA_DIR = $originalDataDirectory
-    Remove-Item -LiteralPath 'Function:\terraform'
+    $env:PATH = $originalPath
+    Remove-Item -LiteralPath 'Function:\Invoke-ExampleTerraformMock'
     Remove-Variable -Name __avmExampleHooksMock -Scope Global -ErrorAction SilentlyContinue
 }

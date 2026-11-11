@@ -13,6 +13,10 @@ $originalDataDirectory = $env:TF_DATA_DIR
 if ($fixtureFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }) {
     throw 'The prerequisite Terraform fixture is missing.'
 }
+$terraform = (Get-AvmTool -Name terraform -Path (Join-Path $PSScriptRoot '..' -AdditionalChildPath '..')).Path
+if ([string]::IsNullOrWhiteSpace($terraform)) {
+    throw 'Managed Terraform is unavailable. Run avm tool install terraform before running this hook.'
+}
 $null = New-Item -ItemType Directory -Path $prerequisites, $configuration -Force
 if (-not (Test-Path -LiteralPath (Join-Path $configuration 'main.tf') -PathType Leaf) -or
     -not (Test-Path -LiteralPath (Join-Path $configuration 'variables.tf') -PathType Leaf)) {
@@ -26,16 +30,16 @@ try {
     } else {
         Join-Path $prerequisites '.terraform'
     }
-    terraform "-chdir=$configuration" init -input=false -reconfigure "-backend-config=path=$statePath" "-backend-config=workspace_dir=$workspacePath"
+    & $terraform "-chdir=$configuration" init -input=false -reconfigure "-backend-config=path=$statePath" "-backend-config=workspace_dir=$workspacePath"
     if ($LASTEXITCODE -ne 0) { throw 'Prerequisite Terraform initialization failed.' }
 
-    terraform "-chdir=$configuration" apply -input=false -auto-approve
+    & $terraform "-chdir=$configuration" apply -input=false -auto-approve
     if ($LASTEXITCODE -ne 0) { throw 'Prerequisite Terraform apply failed.' }
 
-    $keyVaultId = terraform "-chdir=$configuration" output -raw key_vault_id
+    $keyVaultId = & $terraform "-chdir=$configuration" output -raw key_vault_id
     if ($LASTEXITCODE -ne 0) { throw 'Reading the prerequisite Key Vault ID failed.' }
 
-    $secretName = terraform "-chdir=$configuration" output -raw secret_name
+    $secretName = & $terraform "-chdir=$configuration" output -raw secret_name
     if ($LASTEXITCODE -ne 0) { throw 'Reading the prerequisite secret name failed.' }
 
     if ([string]::IsNullOrWhiteSpace($keyVaultId) -or [string]::IsNullOrWhiteSpace($secretName)) {
