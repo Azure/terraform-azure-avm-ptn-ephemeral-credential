@@ -6,7 +6,7 @@ This example exercises `retrievable_secret` against a Key Vault created by a sep
 
 The existing vault ID and secret name are known during plan. The module derives the ephemeral read's vault ID from the managed secret's computed resource ID, deferring the read until apply so it does not fail with `SecretNotFound` before the secret is created.
 
-Run the hooks only in an approved test environment. `pre.ps1` initializes and applies `tests/fixtures/retrievable_secret_existing_keyvault`, then writes the Key Vault ID and secret name to `terraform.tfvars`. The configuration's resource addresses are unchanged. The hooks explicitly retain state at this example's `prereqs/terraform.tfstate`, workspace state at `prereqs/terraform.tfstate.d`, and initialization data at `prereqs/.terraform` (or the caller's existing `TF_DATA_DIR`). No existing state needs to be moved.
+Run the hooks only in an approved test environment. `pre.ps1` copies the Terraform fixture from `tests/fixtures/retrievable_secret_existing_keyvault` into this example's `prereqs/configuration`, initializes and applies it, then writes the Key Vault ID and secret name to `terraform.tfvars`. The configuration's resource addresses are unchanged. The hooks explicitly retain state at `prereqs/terraform.tfstate`, workspace state at `prereqs/terraform.tfstate.d`, and initialization data at `prereqs/.terraform` (or the caller's existing `TF_DATA_DIR`). No existing state needs to be moved.
 
 `post.ps1` destroys the prerequisite resources and removes `terraform.tfvars` only after successful cleanup. Failed cleanup retains local state and outputs, but a hosting tool that deletes its staging directory can still discard them. Terraform failures are reported rather than ignored. The prerequisite vault has purge protection disabled, and the fixture's regions-module telemetry is disabled.
 
@@ -15,6 +15,7 @@ module "retrievable_password" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   password = {
     length      = 20
     special     = true
@@ -70,6 +71,14 @@ If it is set to false, then no telemetry will be collected.
 Type: `bool`
 
 Default: `true`
+
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region for this module's resources or telemetry deployment.
+
+Type: `string`
+
+Default: `"eastus"`
 
 ### <a name="input_secret_name"></a> [secret\_name](#input\_secret\_name)
 

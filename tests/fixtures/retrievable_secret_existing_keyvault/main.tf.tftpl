@@ -23,17 +23,13 @@ provider "azurerm" {
   features {}
 }
 
-variable "prefix" {
-  type    = string
-  default = "avmec"
-}
-
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
   enable_telemetry = false
   is_recommended   = true
+  location         = var.location
 }
 
 resource "random_integer" "region_index" {

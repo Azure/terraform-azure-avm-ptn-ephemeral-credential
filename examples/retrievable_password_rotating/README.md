@@ -11,8 +11,9 @@ data "azurerm_client_config" "current" {}
 
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -73,6 +74,7 @@ module "retrievable_password" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   password = {
     length      = 20
     special     = true
@@ -275,6 +277,14 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region for this module's resources or telemetry deployment.
+
+Type: `string`
+
+Default: `"eastus"`
+
 ## Outputs
 
 No outputs.
@@ -287,7 +297,7 @@ The following Modules are called:
 
 Source: Azure/avm-utl-regions/azurerm
 
-Version: 0.12.0
+Version: 0.13.0
 
 ### <a name="module_retrievable_password"></a> [retrievable\_password](#module\_retrievable\_password)
 

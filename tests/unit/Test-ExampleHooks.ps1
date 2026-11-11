@@ -16,35 +16,38 @@ if (Test-Path -LiteralPath $TestRoot) {
 $example = Join-Path $PSScriptRoot '..\..\examples\retrievable_secret_existing_keyvault'
 $testExample = Join-Path $TestRoot 'examples\retrievable_secret_existing_keyvault'
 $prerequisites = Join-Path $testExample 'prereqs'
+$configuration = Join-Path $prerequisites 'configuration'
 $fixture = Join-Path $TestRoot 'tests\fixtures\retrievable_secret_existing_keyvault'
 $null = New-Item -ItemType Directory -Path $prerequisites, $fixture
 Copy-Item -LiteralPath (Join-Path $example 'pre.ps1'), (Join-Path $example 'post.ps1') -Destination $testExample
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\fixtures\retrievable_secret_existing_keyvault\main.tf') -Destination $fixture
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\fixtures\retrievable_secret_existing_keyvault\main.tf.tftpl'),
+    (Join-Path $PSScriptRoot '..\fixtures\retrievable_secret_existing_keyvault\variables.tf.tftpl') -Destination $fixture
 $mock = @{
     Calls = [System.Collections.Generic.List[string]]::new()
     Environments = [System.Collections.Generic.List[object]]::new()
     FailedCommand = ''
     EmptyOutput = ''
     SecretName = 'synthetic-secret"with\characters'
-    Fixture = $fixture
+    Fixture = $configuration
     Prerequisites = $prerequisites
     ExpectedDataDirectory = Join-Path $prerequisites '.terraform'
 }
 
+$global:__avmExampleHooksMock = $mock
 Set-Item -Path Function:\global:terraform -Value {
-    if ($args[0] -cne "-chdir=$($mock.Fixture)" -or $PWD.Path -cne $mock.Prerequisites -or $env:TF_DATA_DIR -cne $mock.ExpectedDataDirectory) {
+    if ($args[0] -cne "-chdir=$($global:__avmExampleHooksMock.Fixture)" -or $PWD.Path -cne $global:__avmExampleHooksMock.Prerequisites -or $env:TF_DATA_DIR -cne $global:__avmExampleHooksMock.ExpectedDataDirectory) {
         throw 'A hook changed the configuration, state working directory or initialization data path.'
     }
-    $mock.Environments.Add(@{ Directory = $PWD.Path; DataDirectory = $env:TF_DATA_DIR; Arguments = @($args) })
+    $global:__avmExampleHooksMock.Environments.Add(@{ Directory = $PWD.Path; DataDirectory = $env:TF_DATA_DIR; Arguments = @($args) })
     $command = $args[1..($args.Count - 1)] -join ' '
-    $mock.Calls.Add($command)
-    $global:LASTEXITCODE = if ($mock.FailedCommand -and $command.StartsWith($mock.FailedCommand)) { 1 } else { 0 }
-    if ($LASTEXITCODE -ne 0 -or $command -eq $mock.EmptyOutput) { return }
+    $global:__avmExampleHooksMock.Calls.Add($command)
+    $global:LASTEXITCODE = if ($global:__avmExampleHooksMock.FailedCommand -and $command.StartsWith($global:__avmExampleHooksMock.FailedCommand)) { 1 } else { 0 }
+    if ($LASTEXITCODE -ne 0 -or $command -eq $global:__avmExampleHooksMock.EmptyOutput) { return }
     if ($command -eq 'output -raw key_vault_id') {
         return '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/synthetic/providers/Microsoft.KeyVault/vaults/synthetic'
     }
-    if ($command -eq 'output -raw secret_name') { return $mock.SecretName }
-}.GetNewClosure()
+    if ($command -eq 'output -raw secret_name') { return $global:__avmExampleHooksMock.SecretName }
+}
 
 function Assert-HookFailure {
     param([string] $Hook, [string] $ExpectedMessage)
@@ -64,6 +67,13 @@ $env:TF_DATA_DIR = $null
 $variables = Join-Path $testExample 'terraform.tfvars'
 try {
     & (Join-Path $testExample 'pre.ps1')
+    foreach ($file in @('main.tf', 'variables.tf')) {
+        $generatedFile = Join-Path $configuration $file
+        $templateFile = Join-Path $fixture "$file.tftpl"
+        if ((Get-Content -LiteralPath $generatedFile -Raw) -cne (Get-Content -LiteralPath $templateFile -Raw)) {
+            throw 'The runtime Terraform configuration does not match its fixture template.'
+        }
+    }
     $lines = Get-Content -LiteralPath $variables
     if (($lines[1] -replace '^secret_name = ', '' | ConvertFrom-Json) -cne $mock.SecretName) {
         throw 'The generated secret name was not correctly escaped.'
@@ -75,7 +85,7 @@ try {
         throw 'The prerequisite command sequence changed.'
     }
     foreach ($call in $mock.Environments) {
-        if ($call.Directory -cne $prerequisites -or $call.DataDirectory -cne (Join-Path $prerequisites '.terraform') -or $call.Arguments[0] -cne "-chdir=$fixture") {
+        if ($call.Directory -cne $prerequisites -or $call.DataDirectory -cne (Join-Path $prerequisites '.terraform') -or $call.Arguments[0] -cne "-chdir=$configuration") {
             throw 'The fixture source, state directory or initialization data location changed.'
         }
     }
@@ -109,17 +119,20 @@ try {
     if ((Get-Content -LiteralPath $statePath -Raw) -cne $syntheticState -or (Get-Content -LiteralPath $variables -Raw) -cne $savedVariables) {
         throw 'Failed cleanup initialization changed the synthetic state or outputs.'
     }
+    if (-not (Test-Path -LiteralPath $configuration -PathType Container)) { throw 'Failed cleanup initialization removed its Terraform configuration.' }
     $mock.FailedCommand = 'destroy -input=false -auto-approve'
     Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'destroy failed'
     if (-not (Test-Path -LiteralPath $variables)) { throw 'Failed cleanup removed terraform.tfvars.' }
     if ((Get-Content -LiteralPath $statePath -Raw) -cne $syntheticState -or (Get-Content -LiteralPath $variables -Raw) -cne $savedVariables) {
         throw 'Failed cleanup changed the synthetic state or outputs.'
     }
+    if (-not (Test-Path -LiteralPath $configuration -PathType Container)) { throw 'Failed cleanup removed its Terraform configuration.' }
     if ($PWD.Path -cne $originalLocation) { throw 'Cleanup did not restore the working directory.' }
 
     $mock.FailedCommand = ''
     & (Join-Path $testExample 'post.ps1')
     if (Test-Path -LiteralPath $variables) { throw 'Successful cleanup retained terraform.tfvars.' }
+    if (Test-Path -LiteralPath $configuration) { throw 'Successful cleanup retained the generated Terraform configuration.' }
     if ($PWD.Path -cne $originalLocation) { throw 'The hooks changed the working directory.' }
     $customData = Join-Path '..' 'custom-data'
     $env:TF_DATA_DIR = $customData
@@ -165,9 +178,9 @@ try {
                 $assignments = @($ast.FindAll({
                     param($node)
                     $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-                    $node.Left.Extent.Text -in @('$fixture', '$prerequisites', '$statePath', '$workspacePath')
+                    $node.Left.Extent.Text -in @('$fixture', '$prerequisites', '$configuration', '$statePath', '$workspacePath')
                 }, $true))
-                if ($assignments.Count -ne 4) { throw 'Unexpected hook path assignments.' }
+                        if ($assignments.Count -ne 5) { throw 'Unexpected hook path assignments.' }
                 foreach ($assignment in $assignments) {
                     $join = @($assignment.Right.FindAll({
                         param($node)
@@ -178,7 +191,8 @@ try {
                     Set-Variable -Name $assignment.Left.VariablePath.UserPath -Value (& ([scriptblock]::Create($joinText)))
                 }
                 $expectedFixture = if ($Separator -eq '\') { 'Q:\synthetic scope\tests\fixtures\retrievable_secret_existing_keyvault' } else { '/synthetic scope/tests/fixtures/retrievable_secret_existing_keyvault' }
-                if ($fixture -cne $expectedFixture -or $prerequisites -cne "$examplePath${Separator}prereqs" -or
+                $expectedConfiguration = "$examplePath${Separator}prereqs${Separator}configuration"
+                if ($fixture -cne $expectedFixture -or $prerequisites -cne "$examplePath${Separator}prereqs" -or $configuration -cne $expectedConfiguration -or
                     $statePath -cne "$examplePath${Separator}prereqs${Separator}terraform.tfstate" -or
                     $workspacePath -cne "$examplePath${Separator}prereqs${Separator}terraform.tfstate.d") {
                     throw "Unexpected synthetic $Separator source or backend paths."
@@ -200,15 +214,15 @@ try {
                 foreach ($command in $commands) { & ([scriptblock]::Create($command.Extent.Text)) }
                 $expectedCommands = if ($hook -eq 'pre.ps1') {
                     @(
-                        @("-chdir=$expectedFixture", 'init', '-input=false', '-reconfigure', "-backend-config=path=$statePath", "-backend-config=workspace_dir=$workspacePath"),
-                        @("-chdir=$expectedFixture", 'apply', '-input=false', '-auto-approve'),
-                        @("-chdir=$expectedFixture", 'output', '-raw', 'key_vault_id'),
-                        @("-chdir=$expectedFixture", 'output', '-raw', 'secret_name')
+                        @("-chdir=$expectedConfiguration", 'init', '-input=false', '-reconfigure', "-backend-config=path=$statePath", "-backend-config=workspace_dir=$workspacePath"),
+                        @("-chdir=$expectedConfiguration", 'apply', '-input=false', '-auto-approve'),
+                        @("-chdir=$expectedConfiguration", 'output', '-raw', 'key_vault_id'),
+                        @("-chdir=$expectedConfiguration", 'output', '-raw', 'secret_name')
                     )
                 } else {
                     @(
-                        @("-chdir=$expectedFixture", 'init', '-input=false', '-reconfigure', "-backend-config=path=$statePath", "-backend-config=workspace_dir=$workspacePath"),
-                        @("-chdir=$expectedFixture", 'destroy', '-input=false', '-auto-approve')
+                        @("-chdir=$expectedConfiguration", 'init', '-input=false', '-reconfigure', "-backend-config=path=$statePath", "-backend-config=workspace_dir=$workspacePath"),
+                        @("-chdir=$expectedConfiguration", 'destroy', '-input=false', '-auto-approve')
                     )
                 }
                 if ($calls.Count -ne $expectedCommands.Count) { throw 'Unexpected hook command count.' }
@@ -218,15 +232,16 @@ try {
             }
         } $separator $testExample
     }
-    $fixtureText = Get-Content -LiteralPath (Join-Path $fixture 'main.tf') -Raw
+    $fixtureText = Get-Content -LiteralPath (Join-Path $fixture 'main.tf.tftpl') -Raw
     if ($fixtureText -notmatch '(?s)module "regions" \{[^}]*enable_telemetry\s*=\s*false') {
         throw 'The fixture regions module must explicitly disable telemetry.'
     }
-    Rename-Item -LiteralPath (Join-Path $fixture 'main.tf') -NewName 'main.tf.missing'
+    Rename-Item -LiteralPath (Join-Path $fixture 'main.tf.tftpl') -NewName 'main.tf.missing'
     Assert-HookFailure -Hook 'pre.ps1' -ExpectedMessage 'fixture is missing'
     Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'fixture is missing'
     Write-Output 'Passed 12 synthetic hook cases plus Windows/Unix source, backend, init-path and exact argv models, fixture opt-out and failed-cleanup state/output retention. No Terraform binary or provider was executed.'
 } finally {
     $env:TF_DATA_DIR = $originalDataDirectory
     Remove-Item -LiteralPath 'Function:\terraform'
+    Remove-Variable -Name __avmExampleHooksMock -Scope Global -ErrorAction SilentlyContinue
 }

@@ -7,8 +7,9 @@ This deploys a non-retrievable ephemeral password without TTL. Each time you rea
 ```hcl
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -114,6 +115,7 @@ module "non_retrievable_password" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   # Changing password config would trigger a password update
   password = {
     length      = 20
@@ -228,6 +230,14 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region for this module's resources or telemetry deployment.
+
+Type: `string`
+
+Default: `"eastus"`
+
 ## Outputs
 
 No outputs.
@@ -246,7 +256,7 @@ Version:
 
 Source: Azure/avm-utl-regions/azurerm
 
-Version: 0.12.0
+Version: 0.13.0
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection

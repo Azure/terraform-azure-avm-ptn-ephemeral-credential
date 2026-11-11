@@ -1,7 +1,8 @@
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -107,6 +108,7 @@ module "non_retrievable_password" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   # Changing password config would trigger a password update
   password = {
     length      = 20
