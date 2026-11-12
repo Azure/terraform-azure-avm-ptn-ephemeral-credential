@@ -9,6 +9,17 @@ DESCRIPTION
   nullable    = false
 }
 
+variable "location" {
+  type        = string
+  default     = null
+  description = "The Azure region for this module's resources or telemetry deployment."
+
+  validation {
+    condition     = !var.enable_telemetry || var.location != null
+    error_message = "The location must not be null when telemetry is enabled."
+  }
+}
+
 variable "password" {
   type = object({
     length           = number

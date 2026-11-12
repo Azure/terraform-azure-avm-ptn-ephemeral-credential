@@ -52,6 +52,7 @@ module "retrievable_key" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   private_key = {
     algorithm = "RSA"
     rsa_bits  = 2048
@@ -67,8 +68,9 @@ locals {
 
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -278,6 +280,14 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_location"></a> [location](#input\_location)
+
+Description: The Azure region for this module's resources or telemetry deployment.
+
+Type: `string`
+
+Default: `"eastus"`
+
 ## Outputs
 
 No outputs.
@@ -290,7 +300,7 @@ The following Modules are called:
 
 Source: Azure/avm-utl-regions/azurerm
 
-Version: 0.12.0
+Version: 0.13.0
 
 ### <a name="module_retrievable_key"></a> [retrievable\_key](#module\_retrievable\_key)
 

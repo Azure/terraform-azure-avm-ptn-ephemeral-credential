@@ -1,0 +1,11 @@
+variable "location" {
+  type        = string
+  default     = "eastus"
+  description = "The Azure region for this module's resources or telemetry deployment."
+  nullable    = false
+}
+
+variable "prefix" {
+  type    = string
+  default = "avmec"
+}

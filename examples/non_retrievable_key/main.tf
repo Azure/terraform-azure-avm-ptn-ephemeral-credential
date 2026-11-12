@@ -6,8 +6,9 @@ resource "random_string" "id" {
 
 module "regions" {
   source  = "Azure/avm-utl-regions/azurerm"
-  version = "0.12.0"
+  version = "0.13.0"
 
+  location         = var.location
   enable_telemetry = var.enable_telemetry
   is_recommended   = true
 }
@@ -107,6 +108,7 @@ module "non_retrievable_private_key" {
   source = "../../"
 
   enable_telemetry = var.enable_telemetry
+  location         = var.location
   private_key = {
     algorithm = "RSA"
     rsa_bits  = 2048

@@ -1,6 +1,6 @@
 variable "key_vault_id" {
   type        = string
-  description = "The resource ID of an existing Key Vault to write the retrievable secret into. Provided by `pre.sh` via `terraform.tfvars`."
+  description = "The resource ID of an existing Key Vault to write the retrievable secret into. Provided by `pre.ps1` via `terraform.tfvars`."
 }
 
 variable "enable_telemetry" {
@@ -11,6 +11,13 @@ This variable controls whether or not telemetry is enabled for the module.
 For more information see <https://aka.ms/avm/telemetryinfo>.
 If it is set to false, then no telemetry will be collected.
 DESCRIPTION
+}
+
+variable "location" {
+  type        = string
+  default     = "eastus"
+  description = "The Azure region for this module's resources or telemetry deployment."
+  nullable    = false
 }
 
 variable "secret_name" {
