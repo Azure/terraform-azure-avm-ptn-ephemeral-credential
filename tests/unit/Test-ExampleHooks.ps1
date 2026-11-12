@@ -16,6 +16,7 @@ $example = Join-Path $PSScriptRoot '..\..\examples\retrievable_secret_existing_k
 $testExample = Join-Path $TestRoot 'examples\retrievable_secret_existing_keyvault'
 $prerequisites = Join-Path $testExample 'prereqs'
 $configuration = Join-Path $prerequisites 'configuration'
+$providerCache = Join-Path $prerequisites '.terraform' -AdditionalChildPath 'provider-cache'
 $fixture = Join-Path $TestRoot 'tests\fixtures\retrievable_secret_existing_keyvault'
 $null = New-Item -ItemType Directory -Path $prerequisites, $fixture
 Copy-Item -LiteralPath (Join-Path $example 'pre.ps1'), (Join-Path $example 'post.ps1') -Destination $testExample
@@ -30,6 +31,8 @@ $mock = @{
     Fixture = $configuration
     Prerequisites = $prerequisites
     ExpectedDataDirectory = Join-Path $prerequisites '.terraform'
+    ExpectedPluginCacheDirectory = $providerCache
+    CliConfigPath = Join-Path $TestRoot 'inherited.tfrc'
     ToolPath = 'Invoke-ExampleTerraformMock'
     ToolResolutions = [System.Collections.Generic.List[string]]::new()
 }
@@ -47,6 +50,11 @@ Set-Item -Path Function:\global:Invoke-ExampleTerraformMock -Value {
     if ($args[0] -cne "-chdir=$($global:__avmExampleHooksMock.Fixture)" -or $PWD.Path -cne $global:__avmExampleHooksMock.Prerequisites -or $env:TF_DATA_DIR -cne $global:__avmExampleHooksMock.ExpectedDataDirectory) {
         throw 'A hook changed the configuration, state working directory or initialization data path.'
     }
+    if ($env:TF_PLUGIN_CACHE_DIR -cne $global:__avmExampleHooksMock.ExpectedPluginCacheDirectory -or
+        -not (Test-Path -LiteralPath $env:TF_PLUGIN_CACHE_DIR -PathType Container) -or
+        $env:TF_CLI_CONFIG_FILE -cne $global:__avmExampleHooksMock.CliConfigPath) {
+        throw 'A hook did not isolate its provider cache while preserving the inherited CLI configuration.'
+    }
     $global:__avmExampleHooksMock.Environments.Add(@{ Directory = $PWD.Path; DataDirectory = $env:TF_DATA_DIR; Arguments = @($args) })
     $command = $args[1..($args.Count - 1)] -join ' '
     $global:__avmExampleHooksMock.Calls.Add($command)
@@ -60,6 +68,7 @@ Set-Item -Path Function:\global:Invoke-ExampleTerraformMock -Value {
 
 function Assert-HookFailure {
     param([string] $Hook, [string] $ExpectedMessage)
+    $inheritedCache = $env:TF_PLUGIN_CACHE_DIR
     $failed = $false
     try {
         & (Join-Path $testExample $Hook)
@@ -68,17 +77,28 @@ function Assert-HookFailure {
         $failed = $true
     }
     if (-not $failed) { throw "$Hook should have failed." }
+    if ($env:TF_PLUGIN_CACHE_DIR -cne $inheritedCache) { throw 'A failed hook did not restore the inherited provider cache.' }
 }
 
 $originalLocation = $PWD.Path
 $originalDataDirectory = $env:TF_DATA_DIR
+$originalPluginCacheDirectory = $env:TF_PLUGIN_CACHE_DIR
+$originalCliConfig = $env:TF_CLI_CONFIG_FILE
 $originalPath = $env:PATH
+$sharedPluginCache = Join-Path $TestRoot 'shared-provider-cache'
+$cliPluginCache = Join-Path $TestRoot 'cli-provider-cache'
+$cliConfig = "plugin_cache_dir = $(ConvertTo-Json -InputObject $cliPluginCache.Replace('\', '/') -Compress)"
+$null = New-Item -ItemType Directory -Path $sharedPluginCache, $cliPluginCache
+Set-Content -LiteralPath $mock.CliConfigPath -Value $cliConfig -NoNewline
+$env:TF_PLUGIN_CACHE_DIR = $sharedPluginCache
+$env:TF_CLI_CONFIG_FILE = $mock.CliConfigPath
 $env:PATH = ''
 $env:TF_DATA_DIR = $null
 $variables = Join-Path $testExample 'terraform.tfvars'
 try {
     if (Get-Command terraform -ErrorAction SilentlyContinue) { throw 'Terraform must be absent from PATH for this regression test.' }
     & (Join-Path $testExample 'pre.ps1')
+    if ($env:TF_PLUGIN_CACHE_DIR -cne $sharedPluginCache) { throw 'Setup did not restore the inherited provider cache.' }
     if ($mock.ToolResolutions.Count -ne 1) { throw 'Setup did not resolve managed Terraform.' }
     foreach ($file in @('main.tf', 'variables.tf')) {
         $generatedFile = Join-Path $configuration $file
@@ -178,6 +198,25 @@ try {
     $mock.FailedCommand = ''
     & (Join-Path $testExample 'post.ps1')
 
+    foreach ($inheritedCache in @($null, $sharedPluginCache)) {
+        $env:TF_PLUGIN_CACHE_DIR = $inheritedCache
+        & (Join-Path $testExample 'pre.ps1')
+        if ($env:TF_PLUGIN_CACHE_DIR -cne $inheritedCache) { throw 'Setup changed the inherited provider cache.' }
+        $mock.FailedCommand = 'init -input=false'
+        Assert-HookFailure -Hook 'pre.ps1' -ExpectedMessage 'initialization failed'
+        Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'initialization failed'
+        $mock.FailedCommand = 'destroy -input=false -auto-approve'
+        Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'destroy failed'
+        $mock.FailedCommand = ''
+        & (Join-Path $testExample 'post.ps1')
+        if ($env:TF_PLUGIN_CACHE_DIR -cne $inheritedCache) { throw 'Cleanup changed the inherited provider cache.' }
+    }
+    if ((Get-Content -LiteralPath $mock.CliConfigPath -Raw) -cne $cliConfig -or
+        $env:TF_CLI_CONFIG_FILE -cne $mock.CliConfigPath -or
+        @(Get-ChildItem -LiteralPath $sharedPluginCache, $cliPluginCache -Force).Count) {
+        throw 'A hook changed the caller CLI configuration or shared caches.'
+    }
+
     foreach ($separator in @('\', '/')) {
         & {
             param($Separator, $HookDirectory)
@@ -201,9 +240,9 @@ try {
                 $assignments = @($ast.FindAll({
                     param($node)
                     $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-                    $node.Left.Extent.Text -in @('$fixture', '$prerequisites', '$configuration', '$statePath', '$workspacePath')
+                    $node.Left.Extent.Text -in @('$fixture', '$prerequisites', '$configuration', '$providerCache', '$statePath', '$workspacePath')
                 }, $true))
-                        if ($assignments.Count -ne 5) { throw 'Unexpected hook path assignments.' }
+                        if ($assignments.Count -ne 6) { throw 'Unexpected hook path assignments.' }
                 foreach ($assignment in $assignments) {
                     $join = @($assignment.Right.FindAll({
                         param($node)
@@ -216,6 +255,7 @@ try {
                 $expectedFixture = if ($Separator -eq '\') { 'Q:\synthetic scope\tests\fixtures\retrievable_secret_existing_keyvault' } else { '/synthetic scope/tests/fixtures/retrievable_secret_existing_keyvault' }
                 $expectedConfiguration = "$examplePath${Separator}prereqs${Separator}configuration"
                 if ($fixture -cne $expectedFixture -or $prerequisites -cne "$examplePath${Separator}prereqs" -or $configuration -cne $expectedConfiguration -or
+                    $providerCache -cne "$prerequisites${Separator}.terraform${Separator}provider-cache" -or
                     $statePath -cne "$examplePath${Separator}prereqs${Separator}terraform.tfstate" -or
                     $workspacePath -cne "$examplePath${Separator}prereqs${Separator}terraform.tfstate.d") {
                     throw "Unexpected synthetic $Separator source or backend paths."
@@ -223,7 +263,7 @@ try {
                 $dataJoins = @($ast.FindAll({
                     param($node)
                     $node -is [System.Management.Automation.Language.CommandAst] -and
-                    $node.GetCommandName() -eq 'Join-Path' -and $node.Extent.Text -match "'\.terraform'"
+                    $node.GetCommandName() -eq 'Join-Path' -and $node.Extent.Text -match "'\.terraform'$"
                 }, $true))
                 if ($dataJoins.Count -ne 1 -or (& ([scriptblock]::Create($dataJoins[0].Extent.Text))) -cne "$prerequisites${Separator}.terraform") {
                     throw 'Unexpected initialization path.'
@@ -264,9 +304,11 @@ try {
     Rename-Item -LiteralPath (Join-Path $fixture 'main.tf.tftpl') -NewName 'main.tf.missing'
     Assert-HookFailure -Hook 'pre.ps1' -ExpectedMessage 'fixture is missing'
     Assert-HookFailure -Hook 'post.ps1' -ExpectedMessage 'fixture is missing'
-    Write-Output 'Passed synthetic hook cases with Terraform absent from PATH, managed-tool resolution failures, Windows/Unix paths and exact argv, and failed-cleanup state/output retention. No Terraform binary or provider was executed.'
+    Write-Output 'Passed synthetic hook cases with Terraform absent from PATH, managed-tool resolution failures, isolated provider caches and environment restoration, Windows/Unix paths and exact argv, and failed-cleanup state/output retention. No Terraform binary or provider was executed.'
 } finally {
     $env:TF_DATA_DIR = $originalDataDirectory
+    $env:TF_PLUGIN_CACHE_DIR = $originalPluginCacheDirectory
+    $env:TF_CLI_CONFIG_FILE = $originalCliConfig
     $env:PATH = $originalPath
     Remove-Item -LiteralPath 'Function:\Invoke-ExampleTerraformMock'
     Remove-Variable -Name __avmExampleHooksMock -Scope Global -ErrorAction SilentlyContinue
